@@ -1,16 +1,19 @@
+# coding: utf-8
+
+import glob
 from astropy.io import fits
 import numpy as np
 import pyspeckit as psk
 import matplotlib.pyplot as plt
 
 # gives data for entire set of data
-#test = glob.glob('./nh3/*.n*.fits')
+test = glob.glob('./nh3/*.n*.fits')
 
 # smallest set of data working with for now
-test = glob.glob('./nh3/GSerpBolo3*.n*.fits')
+#test = glob.glob('./nh3/GSerpBolo3*.n*.fits')
+
 test.sort()
 a = len(test)
-
 c = 3E8
 
 # outputs dictionary of .fits files
@@ -21,14 +24,13 @@ A = np.arange(len(fits.getdata(globd[0])['DATA'].T))
 spect = {i : psk.Spectrum(data=(fits.getdata(globd[i])['DATA'].T).squeeze(),xarr=c*((fits.getdata(globd[i])['CDELT1']*(A-fits.getdata(globd[i])['CRPIX1']+1)+fits.getdata(globd[i])['CRVAL1'])/fits.getdata(globd[i])['RESTFREQ']-1),xarrkwargs={'unit':'m/s','refX':fits.getdata(globd[i])['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'}) for i in range(a)}
 
 
-
 # group nh3 spectra in respective transitions; current issue is that the code ignores the n44 .fits files
 n = np.arange(len(spect)/3)
 spect2 = { i : {'oneone':spect[3*i],'twotwo':spect[3*i+1],'threethree':spect[3*i+2]} for i in range(len(n))}
 
-
-# current issue with this despite that it works, it takes way too long, and it overwrites the previous figures as expected
+# current issue with this despite that it works it takes way too long
+fnameT = "./nh3_figures/plot{0:07d}.png"
 for i in range(min(n),max(n)):
 	spdict1 = psk.wrappers.fitnh3.fitnh3tkin(spect2[i])
-	plt.savefig('./nh3_figures/test.png')
-
+	plt.savefig(fnameT.format(i), format='png')
+	plt.close()
