@@ -14,7 +14,7 @@ objects = [((os.path.basename(fileNames[name])))[0:-9] for name in range(max(a))
 
 # This line replaces the objects list with a sorted set of the unique items in that list.
 objects = sorted(set(objects))
-
+ 
 # nh3dict creates one large dictionary where each entry corresponds to the spectrum of the (1,1), (2,2), (3,3)
 import pyspeckit as psk
 from astropy.io import fits
