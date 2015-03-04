@@ -93,7 +93,7 @@ for thisObject in objects:
 
 """
 
-
+guess = [15, 7, 15, 2, 30, 0]
 # attempt to use median_filter with pyspeckit
 for thisObject in objects: 
     spect2 = {}
@@ -105,7 +105,7 @@ for thisObject in objects:
        v1 = c*(nu1/data1['RESTFREQ']-1)
        t11 = median_filter(data1['DATA'].T,size=value)
        v11 = median_filter(v1,size=value)
-       spec11 = psk.Spectrum(data=data1['DATA'].T.squeeze(),unit='K',xarr=v11,xarrkwargs={'unit':'m/s','refX':data1['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
+       spec11 = psk.Spectrum(data=data1['DATA'].T.squeeze(),unit='K',xarr=v1,xarrkwargs={'unit':'m/s','refX':data1['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spect2['oneone'] = spec11
     if os.path.exists('./nh3/'+thisObject+'.n22.fits'):
        data2 = fits.getdata('./nh3/'+thisObject+'.n22.fits')
@@ -114,7 +114,7 @@ for thisObject in objects:
        v2 = c*(nu2/data2['RESTFREQ']-1)
        t22 = median_filter(data2['DATA'].T,size=value)
        v22 = median_filter(v2,size=value)
-       spec22 = psk.Spectrum(data=data2['DATA'].T.squeeze(),unit='K',xarr=v22,xarrkwargs={'unit':'m/s','refX':data2['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
+       spec22 = psk.Spectrum(data=data2['DATA'].T.squeeze(),unit='K',xarr=v2,xarrkwargs={'unit':'m/s','refX':data2['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spect2['twotwo'] = spec22
     if os.path.exists('./nh3/'+thisObject+'.n33.fits'):
        data3 = fits.getdata('./nh3/'+thisObject+'.n33.fits')
@@ -123,7 +123,7 @@ for thisObject in objects:
        v3 = c*(nu3/data3['RESTFREQ']-1)
        t33 = median_filter(data3['DATA'].T,size=value)
        v33 = median_filter(v3,size=value)
-       spec33 = psk.Spectrum(data=data3['DATA'].T.squeeze(),unit='K',xarr=v33,xarrkwargs={'unit':'m/s','refX':data3['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
+       spec33 = psk.Spectrum(data=data3['DATA'].T.squeeze(),unit='K',xarr=v3,xarrkwargs={'unit':'m/s','refX':data3['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spect2['threethree'] = spec33
     if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
        data4 = fits.getdata('./nh3/'+thisObject+'.n44.fits')
@@ -132,10 +132,10 @@ for thisObject in objects:
        v4 = c*(nu4/data4['RESTFREQ']-1)
        t44 = median_filter(data4['DATA'].T,size=value)
        v44 = median_filter(v4,size=value)
-       spec44 = psk.Spectrum(data=data4['DATA'].T.squeeze(),unit='K',xarr=v44,xarrkwargs={'unit':'m/s','refX':data4['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
+       spec44 = psk.Spectrum(data=data4['DATA'].T.squeeze(),unit='K',xarr=v4,xarrkwargs={'unit':'m/s','refX':data4['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spect2['fourfour'] = spec44
     nh3dict[thisObject] = spect2
-    spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spect2,dobaseline=False)
+    spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spect2,dobaseline=False,guesses=guess)
     spec_row = spectra1.specfit.modelpars    	        # modelpars grabs the fit parameters
     spec_row.insert(0,thisObject)                 	# inserts the string name into spec_row
     t.add_row(spec_row) 			        # adds the whole row into t
