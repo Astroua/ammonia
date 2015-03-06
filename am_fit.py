@@ -33,8 +33,8 @@ Output:  dictionary of the entire spectrum we are working with from nh3dict
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
 
-#fileNames = glob.glob('./nh3/*fits')
-fileNames = glob.glob('./nh3/GSerpBolo3*.n*.fits')
+fileNames = glob.glob('./nh3/*fits')
+#fileNames = glob.glob('./nh3/GSerpBolo3*.n*.fits')
 #fileNames = glob.glob('./nh3/G010*.n*.fits')
 
 a = np.arange(len(fileNames))
@@ -55,6 +55,7 @@ c = 3E8
 for thisObject in objects: 
     spectrum = {}
     fnameT = './nh3_figures/'+thisObject+'.png'
+    fnameT2 = './nh3_figures2/'+thisObject+'.png'
     guess = [15, 7, 15, 2, 30, 0]
 
     if os.path.exists('./nh3/'+thisObject+'.n11.fits'):
@@ -64,12 +65,8 @@ for thisObject in objects:
        v1 = c*(nu1/data1['RESTFREQ']-1)
 
        # Median filter used for smoothing
-       t_medf = median_filter(data1['DATA'].T,size=value)[~np.isnan(median_filter(data1['DATA'].T,size=value))]
-       a_medf = np.arange(len(t_medf))
-       nu_med = data1['CDELT1']*(a_medf-data1['CRPIX1']+1)+data1['CRVAL1']
-       v_dmed = c*(nu_med/data1['RESTFREQ']-1)
-       max_index = np.argmax(t_medf)    
-       v_medf = median_filter(v_dmed,size=value)
+       max_index = np.nanargmax(median_filter(data1['DATA'].T,size=value))
+       v_medf = median_filter(v1,size=value)
        guess[4] = v_medf[max_index]/1000
 
        spec1 = psk.Spectrum(data=data1['DATA'].T.squeeze(),unit='K',xarr=v1,xarrkwargs={'unit':'m/s','refX':data1['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
@@ -101,19 +98,17 @@ for thisObject in objects:
 			
     nh3dict[thisObject] = spectrum			
     spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess)
-    # modelpars extracts the fit parameters created from pyspeckit where: [Tk Tex N sigma v F]
-    spec_row = spectra1.specfit.modelpars    	        
-    spec_row.insert(0,thisObject)                 	
-    t.add_row(spec_row) 			        
-    h_tkin.append(spec_row[1])                          
-    plt.savefig(fnameT.format(thisObject), format='png')
-    plt.close()
-
-# to filter out bad fits if needed to in the future? [tentative]:
-# if spectra1.specfit.modelpars[4] > spectra1.specfit.modelerrs[4]:
-#    if spectra1.specfit.modelerrs[4] ~== 0:
-#      ... [ make plots as per usual ] 
-    
+    # Filters out good and bad fits
+    if -200 < spectra1.specfit.modelpars[4] < 200:
+       spec_row = spectra1.specfit.modelpars    	        
+       spec_row.insert(0,thisObject)                 	
+       t.add_row(spec_row) 			        
+       h_tkin.append(spec_row[1])                          
+       plt.savefig(fnameT.format(thisObject), format='png')
+       plt.close()
+    else:
+       plt.savefig(fnameT2.format(thisObject), format='png')
+       plt.close()
 
 # Creates the histogram
 plt.clf()            
