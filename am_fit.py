@@ -1,8 +1,10 @@
 # coding: utf-8
 import os
 import glob
+import math
 import numpy as np
 import pylab as py
+import array
 import pyspeckit as psk
 from astropy.io import fits
 import matplotlib.pyplot as plt
@@ -25,17 +27,24 @@ Variables:  data* = spectral data extracted from .fits file
 	    Note: * is the value of the transition; ie. 1 = (1,1), 2 = (2,2), etc.
 	  
 
-Output:  dictionary of the entire spectrum we are working with from nh3dict
-	 histogram of kinetic temperatures from htkin
-	 table (t) of fit parameters which comes from pyspeckit
+Output:  Arrays of the fit parameters:
+		tkin = Kinetic temperature
+		tex = Excitation temperature
+		N = Column density
+		sigma = Line width/Velocity dispersion
+		v_los = Apparent line of sight velocity
+
+	 nh3dict = Dictionary of the entire spectrum
+	 Histogram of kinetic temperatures from tkin
+	 t = table of fit parameters
 	 creates fitted spectra plots and saves it all into a directory
 
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
 
-fileNames = glob.glob('./nh3/*fits')
-#fileNames = glob.glob('./nh3/GSerpBolo3*.n*.fits')
-#fileNames = glob.glob('./nh3/G010*.n*.fits')
+#fileNames = glob.glob('./nh3/*fits')
+fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
+#fileNames = glob.glob('./nh3/G015*.n*.fits')
 
 a = np.arange(len(fileNames))
 objects = [((os.path.basename(fileNames[name])))[0:-9] for name in range(max(a))]
@@ -45,13 +54,19 @@ nh3dict = {}
 
 t = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 
-h_tkin = []
+tkin = []
+tex = []
+N = []
+sigma = []
+v_los = []
+
 fnameh = './hist_figs/histogram_tkin.png'
 
 # This creates the dictionary to then pass to pyspeckit to create the fit
 # value is the pixel size for filtering with median_filter
 value = 17
 c = 3E8
+
 for thisObject in objects: 
     spectrum = {}
     fnameT = './nh3_figures/'+thisObject+'.png'
@@ -100,10 +115,16 @@ for thisObject in objects:
     spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess)
     # Filters out good and bad fits
     if -200 < spectra1.specfit.modelpars[4] < 200:
+       tkin.append(spectra1.specfit.modelpars[0])
+       tex.append(spectra1.specfit.modelpars[1])
+       N.append(spectra1.specfit.modelpars[2])
+       sigma.append(spectra1.specfit.modelpars[3])
+       v_los.append(spectra1.specfit.modelpars[4])
+       
        spec_row = spectra1.specfit.modelpars    	        
        spec_row.insert(0,thisObject)                 	
        t.add_row(spec_row) 			        
-       h_tkin.append(spec_row[1])                          
+                                
        plt.savefig(fnameT.format(thisObject), format='png')
        plt.close()
     else:
@@ -112,10 +133,56 @@ for thisObject in objects:
 
 # Creates the histogram
 plt.clf()            
-py.hist(h_tkin,bins=100)
+py.hist(tkin,bins=100)
 plt.xlabel('Kinetic Temperature (K)')
 plt.ylabel('Numbers')
 plt.title('Histogram of Kinetic Temperatures (T_k) of the Spectral Data')
-plt.savefig(fnameh, format='png')
+plt.savefig('./hist_figs/histogram.png', format='png')
+plt.close()
+
+# Tkin vs sigma
+plt.clf()            
+plt.scatter(tkin,sigma)
+plt.xlabel('Kinetic Temperature (K)')
+plt.ylabel('Line Width (\sigma)')
+plt.title('Bivariate Plot of Kinetic Temperature and Line Width')
+plt.savefig('./hist_figs/tkin_vs_sigma.png', format='png')
+plt.close()
+
+# tkin vs tex
+plt.clf()            
+plt.scatter(tkin,tex)
+plt.xlabel('Kinetic Temperature (K)')
+plt.ylabel('Excitation Temperature (K)')
+plt.title('Kinetic Temperature vs Excitation Temperature')
+plt.savefig('./hist_figs/tkin_tex.png', format='png')
+plt.close()
+
+
+# N vs tkin
+plt.clf()            
+plt.scatter(N,tkin)
+plt.ylabel('Kinetic Temperature (K)')
+plt.xlabel('Column Density (log(N))')
+plt.title('Column Density vs Kinetic Temperature')
+plt.savefig('./hist_figs/N_vs_tkin.png', format='png')
+plt.close()
+
+# mach number vs tkin
+# assume gamma = 1 cause its isothermal
+kb = 1.38E-23
+m = 2.82E-26
+cs = np.arange(len(tkin),dtype = np.float64)
+Ma = np.arange(len(tkin),dtype = np.float64)
+for i in range(0,len(tkin)):
+   cs[i] = math.sqrt(kb*tkin[i]/m)
+   Ma[i] = sigma[i]/(np.float(cs[i])/1000)
+
+plt.clf()            
+plt.scatter(Ma,tkin)
+plt.ylabel('Kinetic Temperature (K)')
+plt.xlabel('Mach Number')
+plt.title('Mach Number vs Kinetic Temperature')
+plt.savefig('./hist_figs/Ma_vs_tkin.png', format='png')
 plt.close()
 
