@@ -42,8 +42,9 @@ Output:  Arrays of the fit parameters:
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
 
-#fileNames = glob.glob('./nh3/*fits')
-fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
+"""
+fileNames = glob.glob('./nh3/*fits')
+#fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
 #fileNames = glob.glob('./nh3/G015*.n*.fits')
 
 a = np.arange(len(fileNames))
@@ -54,13 +55,12 @@ nh3dict = {}
 
 t = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 
+# Fit parameters
 tkin = []
 tex = []
 N = []
 sigma = []
 v_los = []
-
-fnameh = './hist_figs/histogram_tkin.png'
 
 # This creates the dictionary to then pass to pyspeckit to create the fit
 # value is the pixel size for filtering with median_filter
@@ -130,45 +130,74 @@ for thisObject in objects:
     else:
        plt.savefig(fnameT2.format(thisObject), format='png')
        plt.close()
+"""
 
-# Creates the histogram
+# Fit parameter histograms
 plt.clf()            
 py.hist(tkin,bins=100)
 plt.xlabel('Kinetic Temperature (K)')
 plt.ylabel('Numbers')
-plt.title('Histogram of Kinetic Temperatures (T_k) of the Spectral Data')
-plt.savefig('./hist_figs/histogram.png', format='png')
+plt.title('Histogram of Kinetic Temperatures ($T_k$)')
+plt.savefig('./ammonia_plots/histogram_tkin.png', format='png')
 plt.close()
 
-# Tkin vs sigma
+plt.clf()            
+py.hist(tex,bins=100)
+plt.xlabel('Excitation Temperature (K)')
+plt.ylabel('Numbers')
+plt.title('Histogram of Excitation Temperatures ($T_{ex}$)')
+plt.savefig('./ammonia_plots/histogram_tex.png', format='png')
+plt.close()
+
+plt.clf()            
+py.hist(N,bins=100)
+plt.xlabel('Column Density')
+plt.ylabel('Numbers')
+plt.title('Histogram of Column Density ($log(N)$)')
+plt.savefig('./ammonia_plots/histogram_N.png', format='png')
+plt.close()
+
+plt.clf()            
+py.hist(sigma,bins=100)
+plt.xlabel('Line Width ($cm^{-2}$)')
+plt.ylabel('Numbers')
+plt.title('Histogram of Line Width ($\sigma$)')
+plt.savefig('./ammonia_plots/histogram_sigma.png', format='png')
+plt.close()
+
+plt.clf()            
+py.hist(v_los,bins=100)
+plt.xlabel('Line-of-Sight Velocity (km/s)')
+plt.ylabel('Numbers')
+plt.title('Histogram of Line-of-Sight Velocity ($v$)')
+plt.savefig('./ammonia_plots/histogram_vlos.png', format='png')
+plt.close()
+
+# Scatter plots with fit parameters
 plt.clf()            
 plt.scatter(tkin,sigma)
 plt.xlabel('Kinetic Temperature (K)')
-plt.ylabel('Line Width (\sigma)')
-plt.title('Bivariate Plot of Kinetic Temperature and Line Width')
-plt.savefig('./hist_figs/tkin_vs_sigma.png', format='png')
+plt.ylabel('Line Width ($cm^{-2}$)')
+plt.title('Kinetic Temperature ($T_k$) and Line Width ($\sigma$)')
+plt.savefig('./ammonia_plots/tkin_vs_sigma.png', format='png')
 plt.close()
 
-# tkin vs tex
 plt.clf()            
 plt.scatter(tkin,tex)
 plt.xlabel('Kinetic Temperature (K)')
 plt.ylabel('Excitation Temperature (K)')
-plt.title('Kinetic Temperature vs Excitation Temperature')
-plt.savefig('./hist_figs/tkin_tex.png', format='png')
+plt.title('Kinetic Temperature ($T_k$) vs Excitation Temperature ($T_{ex}$)')
+plt.savefig('./ammonia_plots/tkin_tex.png', format='png')
 plt.close()
 
-
-# N vs tkin
 plt.clf()            
 plt.scatter(N,tkin)
 plt.ylabel('Kinetic Temperature (K)')
 plt.xlabel('Column Density (log(N))')
-plt.title('Column Density vs Kinetic Temperature')
-plt.savefig('./hist_figs/N_vs_tkin.png', format='png')
+plt.title('Column Density ($log(N)$) vs Kinetic Temperature ($T_k$)')
+plt.savefig('./ammonia_plots/N_vs_tkin.png', format='png')
 plt.close()
 
-# mach number vs tkin
 # assume gamma = 1 cause its isothermal
 kb = 1.38E-23
 m = 2.82E-26
@@ -182,7 +211,7 @@ plt.clf()
 plt.scatter(Ma,tkin)
 plt.ylabel('Kinetic Temperature (K)')
 plt.xlabel('Mach Number')
-plt.title('Mach Number vs Kinetic Temperature')
-plt.savefig('./hist_figs/Ma_vs_tkin.png', format='png')
+plt.title('Mach Number ($Ma$) vs Kinetic Temperature ($T_k$)')
+plt.savefig('./ammonia_plots/Ma_vs_tkin.png', format='png')
 plt.close()
 
