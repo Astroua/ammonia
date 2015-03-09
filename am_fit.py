@@ -42,7 +42,7 @@ Output:  Arrays of the fit parameters:
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
 
-"""
+
 fileNames = glob.glob('./nh3/*fits')
 #fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
 #fileNames = glob.glob('./nh3/G015*.n*.fits')
@@ -130,7 +130,7 @@ for thisObject in objects:
     else:
        plt.savefig(fnameT2.format(thisObject), format='png')
        plt.close()
-"""
+
 
 # Fit parameter histograms
 plt.clf()            
@@ -141,6 +141,7 @@ plt.title('Histogram of Kinetic Temperatures ($T_k$)')
 plt.savefig('./ammonia_plots/histogram_tkin.png', format='png')
 plt.close()
 
+"""
 plt.clf()            
 py.hist(tex,bins=100)
 plt.xlabel('Excitation Temperature (K)')
@@ -172,6 +173,7 @@ plt.ylabel('Numbers')
 plt.title('Histogram of Line-of-Sight Velocity ($v$)')
 plt.savefig('./ammonia_plots/histogram_vlos.png', format='png')
 plt.close()
+"""
 
 # Scatter plots with fit parameters
 plt.clf()            
