@@ -33,10 +33,14 @@ Output:  Arrays of the fit parameters:
 		N = Column density
 		sigma = Line width/Velocity dispersion
 		v_los = Apparent line of sight velocity
-
+	 
+	 Arrays of the integrated intensities:
+		W11, W22, W33 -> intensities of the (1,1), (2,2), (3,3)
+		
 	 nh3dict = Dictionary of the entire spectrum
 	 Histogram of kinetic temperatures from tkin
-	 t = table of fit parameters
+	 t_par = table of fit parameters
+	 t_int = table of integrated intensities
 	 creates fitted spectra plots and saves it all into a directory
 
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
@@ -53,7 +57,12 @@ objects = sorted(set(objects))
 
 nh3dict = {}
 
-t = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
+# Integrated intensities
+W11 = []
+W22 = []
+W33 = []
+
+t_int = Table(names=('FILENAME','W11','W22','W33'),dtype=('S20','f5','f5','f5'))
 
 # Fit parameters
 tkin = []
@@ -61,6 +70,8 @@ tex = []
 N = []
 sigma = []
 v_los = []
+
+t_pars = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 
 # This creates the dictionary to then pass to pyspeckit to create the fit
 # value is the pixel size for filtering with median_filter
@@ -72,6 +83,7 @@ for thisObject in objects:
     fnameT = './nh3_figures/'+thisObject+'.png'
     fnameT2 = './nh3_figures2/'+thisObject+'.png'
     guess = [15, 7, 15, 2, 30, 0]
+    w_row = []
 
     if os.path.exists('./nh3/'+thisObject+'.n11.fits'):
        data1 = fits.getdata('./nh3/'+thisObject+'.n11.fits')
@@ -113,8 +125,9 @@ for thisObject in objects:
 			
     nh3dict[thisObject] = spectrum			
     spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess)
+
     # Filters out good and bad fits
-    if -200 < spectra1.specfit.modelpars[4] < 200:
+    if -150 < spectra1.specfit.modelpars[4] < 150:
        tkin.append(spectra1.specfit.modelpars[0])
        tex.append(spectra1.specfit.modelpars[1])
        N.append(spectra1.specfit.modelpars[2])
@@ -123,10 +136,19 @@ for thisObject in objects:
        
        spec_row = spectra1.specfit.modelpars    	        
        spec_row.insert(0,thisObject)                 	
-       t.add_row(spec_row) 			        
+       t_pars.add_row(spec_row) 			        
                                 
        plt.savefig(fnameT.format(thisObject), format='png')
        plt.close()
+
+       # Calculate W11, W22, W33
+       W11.append(np.trapz(spec1.specfit.model))
+       W22.append(np.trapz(spec2.specfit.model))
+       W33.append(np.trapz(spec3.specfit.model))
+
+       w_row = [thisObject,np.trapz(spec1.specfit.model),np.trapz(spec2.specfit.model),np.trapz(spec3.specfit.model)]
+       t_int.add_row(w_row)
+
     else:
        plt.savefig(fnameT2.format(thisObject), format='png')
        plt.close()
@@ -141,7 +163,7 @@ plt.title('Histogram of Kinetic Temperatures ($T_k$)')
 plt.savefig('./ammonia_plots/histogram_tkin.png', format='png')
 plt.close()
 
-"""
+
 plt.clf()            
 py.hist(tex,bins=100)
 plt.xlabel('Excitation Temperature (K)')
@@ -173,7 +195,7 @@ plt.ylabel('Numbers')
 plt.title('Histogram of Line-of-Sight Velocity ($v$)')
 plt.savefig('./ammonia_plots/histogram_vlos.png', format='png')
 plt.close()
-"""
+
 
 # Scatter plots with fit parameters
 plt.clf()            
