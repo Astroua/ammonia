@@ -35,13 +35,15 @@ Output:  Arrays of the fit parameters:
 		v_los = Apparent line of sight velocity
 	 
 	 Arrays of the integrated intensities:
-		W11, W22, W33 -> intensities of the (1,1), (2,2), (3,3)
+		W11, W22, W33, W44 -> intensities of the (1,1), (2,2), (3,3), (4,4)
 		
 	 nh3dict = Dictionary of the entire spectrum
-	 Histogram of kinetic temperatures from tkin
+	 Histogram of fit parameters
 	 t_par = table of fit parameters
 	 t_int = table of integrated intensities
+	 t_W11 = table of W11; with errors
 	 creates fitted spectra plots and saves it all into a directory
+	 Bivariate plots with fit parameters
 
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
@@ -49,7 +51,7 @@ Output:  Arrays of the fit parameters:
 
 fileNames = glob.glob('./nh3/*fits')
 #fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
-#fileNames = glob.glob('./nh3/G015*.n*.fits')
+#fileNames = glob.glob('./nh3/G010*.n*.fits')
 
 a = np.arange(len(fileNames))
 objects = [((os.path.basename(fileNames[name])))[0:-9] for name in range(max(a))]
@@ -61,8 +63,10 @@ nh3dict = {}
 W11 = []
 W22 = []
 W33 = []
+W44 = []
 
-t_int = Table(names=('FILENAME','W11','W22','W33'),dtype=('S20','f5','f5','f5'))
+t_int = Table(names=('FILENAME','W11','W22','W33','W44'),dtype=('S20','f5','f5','f5','f5'))
+t_w11 = Table(names=('FILENAME','W11_obs','W11_emp','RMS-error; obs','RMS-error; emp','W11_obs - W11_emp','%-error'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
 
 # Fit parameters
 tkin = []
@@ -78,6 +82,7 @@ t_pars = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)')
 value = 17
 c = 3E8
 
+# One big thing to note is that the guess was determined with a bias towords the GSerpBolo .fits files
 for thisObject in objects: 
     spectrum = {}
     fnameT = './nh3_figures/'+thisObject+'.png'
@@ -125,7 +130,7 @@ for thisObject in objects:
 			
     nh3dict[thisObject] = spectrum			
     spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess)
-
+    
     # Filters out good and bad fits
     if -150 < spectra1.specfit.modelpars[4] < 150:
        tkin.append(spectra1.specfit.modelpars[0])
@@ -136,23 +141,49 @@ for thisObject in objects:
        
        spec_row = spectra1.specfit.modelpars    	        
        spec_row.insert(0,thisObject)                 	
-       t_pars.add_row(spec_row) 			        
-                                
-       plt.savefig(fnameT.format(thisObject), format='png')
-       plt.close()
-
-       # Calculate W11, W22, W33
+       t_pars.add_row(spec_row) 
+			        
+       # Calculate W11, W22, W33, W44
        W11.append(np.trapz(spec1.specfit.model))
        W22.append(np.trapz(spec2.specfit.model))
        W33.append(np.trapz(spec3.specfit.model))
 
-       w_row = [thisObject,np.trapz(spec1.specfit.model),np.trapz(spec2.specfit.model),np.trapz(spec3.specfit.model)]
-       t_int.add_row(w_row)
+       # Error calculation for W11
+       W11_oarr = spec1.specfit.model
+       W11_earr = np.zeros(len(spec1.specfit.model),dtype = np.float64)
+       for i in range(0,len(W11_oarr)):
+          if W11_oarr[i] > 1E-6:
+             W11_earr[i] = W11_oarr[i]
+  
+       W11_obs = np.trapz(W11_oarr)
+       W11_emp = np.trapz(W11_earr)
+
+       W11_diff = W11_obs - W11_emp
+       W11_perc = abs(((W11_obs - W11_emp)*100)/W11_obs)
+
+       W11_oerr = np.nanstd(W11_oarr)
+       W11_eerr = np.nanstd(W11_earr)
+
+       W11_row = [thisObject,W11_obs,W11_emp,W11_oerr,W11_eerr,W11_diff,W11_perc]
+       t_w11.add_row(W11_row)
+
+       if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
+          W44.append(np.trapz(spec4.specfit.model))
+          w_row = [thisObject,np.trapz(spec1.specfit.model),np.trapz(spec2.specfit.model),np.trapz   (spec3.specfit.model),np.trapz(spec4.specfit.model)]
+          t_int.add_row(w_row)
+
+       # Originally it was supposed to be 'N/A' for no (4,4) component, but its gonna 666 for now until I find a way to fix it
+       else:
+          W44.append('N/A')   
+          w_row = [thisObject,np.trapz(spec1.specfit.model),np.trapz(spec2.specfit.model),np.trapz(spec3.specfit.model),666]
+          t_int.add_row(w_row)
+          
+       plt.savefig(fnameT.format(thisObject), format='png')
+       plt.close()
 
     else:
        plt.savefig(fnameT2.format(thisObject), format='png')
        plt.close()
-
 
 # Fit parameter histograms
 plt.clf()            
@@ -162,7 +193,6 @@ plt.ylabel('Numbers')
 plt.title('Histogram of Kinetic Temperatures ($T_k$)')
 plt.savefig('./ammonia_plots/histogram_tkin.png', format='png')
 plt.close()
-
 
 plt.clf()            
 py.hist(tex,bins=100)
@@ -225,8 +255,8 @@ plt.close()
 # assume gamma = 1 cause its isothermal
 kb = 1.38E-23
 m = 2.82E-26
-cs = np.arange(len(tkin),dtype = np.float64)
-Ma = np.arange(len(tkin),dtype = np.float64)
+cs = np.zeros(len(tkin),dtype = np.float64)
+Ma = np.zeros(len(tkin),dtype = np.float64)
 for i in range(0,len(tkin)):
    cs[i] = math.sqrt(kb*tkin[i]/m)
    Ma[i] = sigma[i]/(np.float(cs[i])/1000)
