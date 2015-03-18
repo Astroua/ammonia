@@ -144,6 +144,8 @@ for thisObject in objects:
        t_pars.add_row(spec_row) 
 			        
        # Calculate W11, W22, W33, W44
+	#Using Riemann sums instead:
+	#np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096))
        W11.append(np.trapz(spec1.specfit.model))
        W22.append(np.trapz(spec2.specfit.model))
        W33.append(np.trapz(spec3.specfit.model))
