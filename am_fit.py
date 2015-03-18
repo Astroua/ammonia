@@ -150,19 +150,16 @@ for thisObject in objects:
 
        # Error calculation for W11
        W11_oarr = spec1.specfit.model
-       W11_earr = np.zeros(len(spec1.specfit.model),dtype = np.float64)
-       for i in range(0,len(W11_oarr)):
-          if W11_oarr[i] > 1E-6:
-             W11_earr[i] = W11_oarr[i]
-  
        W11_obs = np.trapz(W11_oarr)
-       W11_emp = np.trapz(W11_earr)
+       W11_index = np.where(W11_oarr > 1e-6)
+       W11_emp = np.sum(spec1.data[W11_index])
 
        W11_diff = W11_obs - W11_emp
        W11_perc = abs(((W11_obs - W11_emp)*100)/W11_obs)
 
        W11_oerr = np.nanstd(W11_oarr)
-       W11_eerr = np.nanstd(W11_earr)
+       NoSignal = np.where(W11_oarr < 1e-6)
+       W11_eerr = np.nanstd(spec1.data[NoSignal])
 
        W11_row = [thisObject,W11_obs,W11_emp,W11_oerr,W11_eerr,W11_diff,W11_perc]
        t_w11.add_row(W11_row)
