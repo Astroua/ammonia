@@ -49,8 +49,8 @@ Output:  Arrays of the fit parameters:
 """
 
 
-fileNames = glob.glob('./nh3/*fits')
-#fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
+#fileNames = glob.glob('./nh3/*fits')
+fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
 #fileNames = glob.glob('./nh3/G010*.n*.fits')
 
 a = np.arange(len(fileNames))
@@ -67,6 +67,8 @@ W44 = []
 
 t_int = Table(names=('FILENAME','W11','W22','W33','W44'),dtype=('S20','f5','f5','f5','f5'))
 t_w11 = Table(names=('FILENAME','W11_obs','W11_emp','RMS-error; obs','RMS-error; emp','W11_obs - W11_emp','%-error'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
+
+
 
 # Fit parameters
 tkin = []
@@ -144,17 +146,19 @@ for thisObject in objects:
        t_pars.add_row(spec_row) 
 			        
        # Calculate W11, W22, W33, W44
-	#Using Riemann sums instead:
-	#np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096))
-       W11.append(np.trapz(spec1.specfit.model))
-       W22.append(np.trapz(spec2.specfit.model))
-       W33.append(np.trapz(spec3.specfit.model))
+	# Using trapezoid method instead:
+	# np.trapz(spec1.specfit.model)
+       W11.append(np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000))
+       W22.append(np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000))
+       W33.append(np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000))
 
-       # Error calculation for W11
+      # Error calculation for W11
        W11_oarr = spec1.specfit.model
-       W11_obs = np.trapz(W11_oarr)
+       W11_obs = np.sum(W11_oarr)*(v1.max()-v1.min())/(len(v1)*1000)
+
        W11_index = np.where(W11_oarr > 1e-6)
-       W11_emp = np.sum(spec1.data[W11_index])
+       v_emp = v1[W11_index]
+       W11_emp = np.sum(spec1.data[W11_index])*(v_emp.max()-v_emp.min())/(len(v_emp)*1000)
 
        W11_diff = W11_obs - W11_emp
        W11_perc = abs(((W11_obs - W11_emp)*100)/W11_obs)
@@ -167,14 +171,14 @@ for thisObject in objects:
        t_w11.add_row(W11_row)
 
        if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
-          W44.append(np.trapz(spec4.specfit.model))
-          w_row = [thisObject,np.trapz(spec1.specfit.model),np.trapz(spec2.specfit.model),np.trapz   (spec3.specfit.model),np.trapz(spec4.specfit.model)]
+          W44.append(np.sum(spec4.specfit.model)*(np.float(4096-0)/np.float(4096)))
+          w_row = [thisObject,np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec2.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec3.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec4.specfit.model)*(np.float(4096-0)/np.float(4096))]
           t_int.add_row(w_row)
 
        # Originally it was supposed to be 'N/A' for no (4,4) component, but its gonna 666 for now until I find a way to fix it
        else:
           W44.append('N/A')   
-          w_row = [thisObject,np.trapz(spec1.specfit.model),np.trapz(spec2.specfit.model),np.trapz(spec3.specfit.model),666]
+          w_row = [thisObject,np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec2.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec3.specfit.model)*(np.float(4096-0)/np.float(4096)),666]
           t_int.add_row(w_row)
           
        plt.savefig(fnameT.format(thisObject), format='png')
