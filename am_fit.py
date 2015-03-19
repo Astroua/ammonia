@@ -49,8 +49,8 @@ Output:  Arrays of the fit parameters:
 """
 
 
-#fileNames = glob.glob('./nh3/*fits')
-fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
+fileNames = glob.glob('./nh3/*fits')
+#fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
 #fileNames = glob.glob('./nh3/G010*.n*.fits')
 
 a = np.arange(len(fileNames))
@@ -67,8 +67,6 @@ W44 = []
 
 t_int = Table(names=('FILENAME','W11','W22','W33','W44'),dtype=('S20','f5','f5','f5','f5'))
 t_w11 = Table(names=('FILENAME','W11_obs','W11_emp','RMS-error; obs','RMS-error; emp','W11_obs - W11_emp','%-error'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
-
-
 
 # Fit parameters
 tkin = []
@@ -157,8 +155,9 @@ for thisObject in objects:
        W11_obs = np.sum(W11_oarr)*(v1.max()-v1.min())/(len(v1)*1000)
 
        W11_index = np.where(W11_oarr > 1e-6)
-       v_emp = v1[W11_index]
-       W11_emp = np.sum(spec1.data[W11_index])*(v_emp.max()-v_emp.min())/(len(v_emp)*1000)
+        # v_emp = v1[W11_index]
+	# *(v_emp.max()-v_emp.min())/(len(v_emp)*1000)
+       W11_emp = np.sum(spec1.data[W11_index])*(v1.max()-v1.min())/(len(v1)*1000)
 
        W11_diff = W11_obs - W11_emp
        W11_perc = abs(((W11_obs - W11_emp)*100)/W11_obs)
