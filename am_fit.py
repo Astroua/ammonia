@@ -213,7 +213,7 @@ plt.savefig('./ammonia_plots/N_vs_tkin.png', format='png')
 plt.close()
 
 # assume gamma = 1 cause its isothermal
-kb = 1.38E-23
+kb = 1.3806488E-23
 m = 2.82E-26
 c_s = np.zeros(len(t_pars['TKIN']),dtype = np.float64)
 Ma = np.zeros(len(t_pars['TKIN']),dtype = np.float64)
