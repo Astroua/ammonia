@@ -27,24 +27,14 @@ Variables:  data* = spectral data extracted from .fits file
 	    Note: * is the value of the transition; ie. 1 = (1,1), 2 = (2,2), etc.
 	  
 
-Output:  Arrays of the fit parameters:
-		tkin = Kinetic temperature
-		tex = Excitation temperature
-		N = Column density
-		sigma = Line width/Velocity dispersion
-		v_los = Apparent line of sight velocity
-	 
-	 Arrays of the integrated intensities:
-		W11, W22, W33, W44 -> intensities of the (1,1), (2,2), (3,3), (4,4)
-		
-	 nh3dict = Dictionary of the entire spectrum
+Output:  nh3dict = Dictionary of the entire spectrum
 	 Histogram of fit parameters
 	 t_par = table of fit parameters
 	 t_int = table of integrated intensities
 	 t_W11 = table of W11; with errors
 	 creates fitted spectra plots and saves it all into a directory
 	 Bivariate plots with fit parameters
-
+	
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
 
@@ -57,30 +47,15 @@ a = np.arange(len(fileNames))
 objects = [((os.path.basename(fileNames[name])))[0:-9] for name in range(max(a))]
 objects = sorted(set(objects))
 
-nh3dict = {}
-
-# Integrated intensities
-W11 = []
-W22 = []
-W33 = []
-W44 = []
-
+# Tables; Note: We can extract an array from the astropy.Tables that are generated; ex. t_pars['TKIN']
 t_int = Table(names=('FILENAME','W11','W22','W33','W44'),dtype=('S20','f5','f5','f5','f5'))
 t_w11 = Table(names=('FILENAME','W11_obs','W11_emp','RMS-error; obs','RMS-error; emp','W11_obs - W11_emp','%-error'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
-
-# Fit parameters
-tkin = []
-tex = []
-N = []
-sigma = []
-v_los = []
-
 t_pars = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 
 # This creates the dictionary to then pass to pyspeckit to create the fit
 # value is the pixel size for filtering with median_filter
 value = 17
-c = 3E8
+c = 2.99792458e8
 
 # One big thing to note is that the guess was determined with a bias towords the GSerpBolo .fits files
 for thisObject in objects: 
@@ -127,36 +102,21 @@ for thisObject in objects:
        v4 = c*(nu4/data4['RESTFREQ']-1)
        spec4 = psk.Spectrum(data=data4['DATA'].T.squeeze(),unit='K',xarr=v4,xarrkwargs={'unit':'m/s','refX':data4['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spectrum['fourfour'] = spec4
-			
-    nh3dict[thisObject] = spectrum			
+						
     spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess)
     
     # Filters out good and bad fits
-    if -150 < spectra1.specfit.modelpars[4] < 150:
-       tkin.append(spectra1.specfit.modelpars[0])
-       tex.append(spectra1.specfit.modelpars[1])
-       N.append(spectra1.specfit.modelpars[2])
-       sigma.append(spectra1.specfit.modelpars[3])
-       v_los.append(spectra1.specfit.modelpars[4])
-       
+    if -150 < spectra1.specfit.modelpars[4] < 150:       
        spec_row = spectra1.specfit.modelpars    	        
        spec_row.insert(0,thisObject)                 	
        t_pars.add_row(spec_row) 
 			        
-       # Calculate W11, W22, W33, W44
-	# Using trapezoid method instead:
-	# np.trapz(spec1.specfit.model)
-       W11.append(np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000))
-       W22.append(np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000))
-       W33.append(np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000))
-
+      # Calculate W11, W22, W33, W44
       # Error calculation for W11
        W11_oarr = spec1.specfit.model
        W11_obs = np.sum(W11_oarr)*(v1.max()-v1.min())/(len(v1)*1000)
 
        W11_index = np.where(W11_oarr > 1e-6)
-        # v_emp = v1[W11_index]
-	# *(v_emp.max()-v_emp.min())/(len(v_emp)*1000)
        W11_emp = np.sum(spec1.data[W11_index])*(v1.max()-v1.min())/(len(v1)*1000)
 
        W11_diff = W11_obs - W11_emp
@@ -170,13 +130,11 @@ for thisObject in objects:
        t_w11.add_row(W11_row)
 
        if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
-          W44.append(np.sum(spec4.specfit.model)*(np.float(4096-0)/np.float(4096)))
           w_row = [thisObject,np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec2.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec3.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec4.specfit.model)*(np.float(4096-0)/np.float(4096))]
           t_int.add_row(w_row)
 
-       # Originally it was supposed to be 'N/A' for no (4,4) component, but its gonna 666 for now until I find a way to fix it
-       else:
-          W44.append('N/A')   
+       # If W44 = 666, then it means N/A cause astropy.table can accept either float/string but not both
+       else: 
           w_row = [thisObject,np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec2.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec3.specfit.model)*(np.float(4096-0)/np.float(4096)),666]
           t_int.add_row(w_row)
           
@@ -189,7 +147,7 @@ for thisObject in objects:
 
 # Fit parameter histograms
 plt.clf()            
-py.hist(tkin,bins=100)
+py.hist(t_pars['TKIN'],bins=100)
 plt.xlabel('Kinetic Temperature (K)')
 plt.ylabel('Numbers')
 plt.title('Histogram of Kinetic Temperatures ($T_k$)')
@@ -197,7 +155,7 @@ plt.savefig('./ammonia_plots/histogram_tkin.png', format='png')
 plt.close()
 
 plt.clf()            
-py.hist(tex,bins=100)
+py.hist(t_pars['TEX'],bins=100)
 plt.xlabel('Excitation Temperature (K)')
 plt.ylabel('Numbers')
 plt.title('Histogram of Excitation Temperatures ($T_{ex}$)')
@@ -205,7 +163,7 @@ plt.savefig('./ammonia_plots/histogram_tex.png', format='png')
 plt.close()
 
 plt.clf()            
-py.hist(N,bins=100)
+py.hist(t_pars['N(0)'],bins=100)
 plt.xlabel('Column Density')
 plt.ylabel('Numbers')
 plt.title('Histogram of Column Density ($log(N)$)')
@@ -213,7 +171,7 @@ plt.savefig('./ammonia_plots/histogram_N.png', format='png')
 plt.close()
 
 plt.clf()            
-py.hist(sigma,bins=100)
+py.hist(t_pars['SIGMA(0)'],bins=100)
 plt.xlabel('Line Width ($cm^{-2}$)')
 plt.ylabel('Numbers')
 plt.title('Histogram of Line Width ($\sigma$)')
@@ -221,7 +179,7 @@ plt.savefig('./ammonia_plots/histogram_sigma.png', format='png')
 plt.close()
 
 plt.clf()            
-py.hist(v_los,bins=100)
+py.hist(t_pars['V(0)'],bins=100)
 plt.xlabel('Line-of-Sight Velocity (km/s)')
 plt.ylabel('Numbers')
 plt.title('Histogram of Line-of-Sight Velocity ($v$)')
@@ -231,7 +189,7 @@ plt.close()
 
 # Scatter plots with fit parameters
 plt.clf()            
-plt.scatter(tkin,sigma)
+plt.scatter(t_pars['TKIN'],t_pars['SIGMA(0)'])
 plt.xlabel('Kinetic Temperature (K)')
 plt.ylabel('Line Width ($cm^{-2}$)')
 plt.title('Kinetic Temperature ($T_k$) and Line Width ($\sigma$)')
@@ -239,7 +197,7 @@ plt.savefig('./ammonia_plots/tkin_vs_sigma.png', format='png')
 plt.close()
 
 plt.clf()            
-plt.scatter(tkin,tex)
+plt.scatter(t_pars['TKIN'],t_pars['TEX'])
 plt.xlabel('Kinetic Temperature (K)')
 plt.ylabel('Excitation Temperature (K)')
 plt.title('Kinetic Temperature ($T_k$) vs Excitation Temperature ($T_{ex}$)')
@@ -247,7 +205,7 @@ plt.savefig('./ammonia_plots/tkin_tex.png', format='png')
 plt.close()
 
 plt.clf()            
-plt.scatter(N,tkin)
+plt.scatter(t_pars['N(0)'],t_pars['TKIN'])
 plt.ylabel('Kinetic Temperature (K)')
 plt.xlabel('Column Density (log(N))')
 plt.title('Column Density ($log(N)$) vs Kinetic Temperature ($T_k$)')
@@ -257,14 +215,14 @@ plt.close()
 # assume gamma = 1 cause its isothermal
 kb = 1.38E-23
 m = 2.82E-26
-cs = np.zeros(len(tkin),dtype = np.float64)
-Ma = np.zeros(len(tkin),dtype = np.float64)
-for i in range(0,len(tkin)):
-   cs[i] = math.sqrt(kb*tkin[i]/m)
-   Ma[i] = sigma[i]/(np.float(cs[i])/1000)
+c_s = np.zeros(len(t_pars['TKIN']),dtype = np.float64)
+Ma = np.zeros(len(t_pars['TKIN']),dtype = np.float64)
+for i in range(0,len(t_pars['TKIN'])):
+   c_s[i] = math.sqrt(kb*t_pars['TKIN'][i]/m)
+   Ma[i] = sigma[i]/(np.float(c_s[i])/1000)
 
 plt.clf()            
-plt.scatter(Ma,tkin)
+plt.scatter(Ma,t_pars['TKIN'])
 plt.ylabel('Kinetic Temperature (K)')
 plt.xlabel('Mach Number')
 plt.title('Mach Number ($Ma$) vs Kinetic Temperature ($T_k$)')
