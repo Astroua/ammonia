@@ -40,8 +40,8 @@ Output:  nh3dict = Dictionary of the entire spectrum
 """
 
 
-#fileNames = glob.glob('./nh3_all/*fits')
-fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
+fileNames = glob.glob('./nh3_all/*fits')
+#fileNames = glob.glob('./nh3_all/GSerpBolo2*.n*.fits')
 #fileNames = glob.glob('./nh3/G010*.n*.fits')
 
 a = np.arange(len(fileNames))
@@ -96,15 +96,13 @@ tau_wts = np.array([0.0740740,
 
 deltanu = -1*voff_lines/((c/1000)*23.6944955e9)
 
-
-# One big thing to note is that the guess was determined with a bias towords the GSerpBolo .fits files
 for thisObject in objects: 
     spectrum = {}
     fnameT = './nh3_figures/'+thisObject+'.png'
     fnameT2 = './nh3_figures2/'+thisObject+'.png'
 
-    if os.path.exists('./nh3/'+thisObject+'.n11.fits'):
-       data1 = fits.getdata('./nh3/'+thisObject+'.n11.fits')
+    if os.path.exists('./nh3_all/'+thisObject+'.n11.fits'):
+       data1 = fits.getdata('./nh3_all/'+thisObject+'.n11.fits')
        A1 = np.arange(len(data1['DATA'].T))
        nu1 = data1['CDELT1']*(A1-data1['CRPIX1']+1)+data1['CRVAL1']
        v1 = c*(nu1/data1['RESTFREQ']-1)
@@ -148,24 +146,24 @@ for thisObject in objects:
            v0,
            0.5]
 
-    if os.path.exists('./nh3/'+thisObject+'.n22.fits'):
-       data2 = fits.getdata('./nh3/'+thisObject+'.n22.fits')
+    if os.path.exists('./nh3_all/'+thisObject+'.n22.fits'):
+       data2 = fits.getdata('./nh3_all/'+thisObject+'.n22.fits')
        A2 = np.arange(len(data2['DATA'].T))
        nu2 = data2['CDELT1']*(A2-data2['CRPIX1']+1)+data2['CRVAL1']
        v2 = c*(nu2/data2['RESTFREQ']-1)
        spec2 = psk.Spectrum(data=data2['DATA'].T.squeeze(),unit='K',xarr=v2,xarrkwargs={'unit':'m/s','refX':data2['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spectrum['twotwo'] = spec2
 
-    if os.path.exists('./nh3/'+thisObject+'.n33.fits'):
-       data3 = fits.getdata('./nh3/'+thisObject+'.n33.fits')
+    if os.path.exists('./nh3_all/'+thisObject+'.n33.fits'):
+       data3 = fits.getdata('./nh3_all/'+thisObject+'.n33.fits')
        A3 = np.arange(len(data3['DATA'].T))
        nu3 = data3['CDELT1']*(A3-data3['CRPIX1']+1)+data3['CRVAL1']
        v3 = c*(nu3/data3['RESTFREQ']-1)
        spec3 = psk.Spectrum(data=data3['DATA'].T.squeeze(),unit='K',xarr=v3,xarrkwargs={'unit':'m/s','refX':data3['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spectrum['threethree'] = spec3
 
-    if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
-       data4 = fits.getdata('./nh3/'+thisObject+'.n44.fits')
+    if os.path.exists('./nh3_all/'+thisObject+'.n44.fits'):
+       data4 = fits.getdata('./nh3_all/'+thisObject+'.n44.fits')
        A4 = np.arange(len(data4['DATA'].T))
        nu4 = data4['CDELT1']*(A4-data4['CRPIX1']+1)+data4['CRVAL1']
        v4 = c*(nu4/data4['RESTFREQ']-1)
@@ -198,6 +196,15 @@ for thisObject in objects:
        W11_row = [thisObject,W11_obs,W11_emp,W11_oerr,W11_eerr,W11_diff,W11_perc]
        t_w11.add_row(W11_row)
 
+       plt.savefig(fnameT.format(thisObject), format='png')
+       plt.close()
+
+    else:
+       plt.savefig(fnameT2.format(thisObject), format='png')
+       plt.close()
+
+
+"""
        if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
           w_row = [thisObject,np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec2.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec3.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec4.specfit.model)*(np.float(4096-0)/np.float(4096))]
           t_int.add_row(w_row)
@@ -206,13 +213,8 @@ for thisObject in objects:
        else: 
           w_row = [thisObject,np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec2.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec3.specfit.model)*(np.float(4096-0)/np.float(4096)),666]
           t_int.add_row(w_row)
+"""
           
-       plt.savefig(fnameT.format(thisObject), format='png')
-       plt.close()
-
-    else:
-       plt.savefig(fnameT2.format(thisObject), format='png')
-       plt.close()
 
 # Fit parameter histograms
 plt.clf()            
@@ -288,7 +290,7 @@ c_s = np.zeros(len(t_pars['TKIN']),dtype = np.float64)
 Ma = np.zeros(len(t_pars['TKIN']),dtype = np.float64)
 for i in range(0,len(t_pars['TKIN'])):
    c_s[i] = math.sqrt(kb*t_pars['TKIN'][i]/m)
-   Ma[i] = sigma[i]/(np.float(c_s[i])/1000)
+   Ma[i] = t_pars['SIGMA(0)'][i]/(np.float(c_s[i])/1000)
 
 plt.clf()            
 plt.scatter(Ma,t_pars['TKIN'])
