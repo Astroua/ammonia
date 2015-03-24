@@ -3,6 +3,7 @@ import os
 import glob
 import math
 import numpy as np
+import numpy.fft as fft
 import pylab as py
 import array
 import pyspeckit as psk
@@ -39,8 +40,8 @@ Output:  nh3dict = Dictionary of the entire spectrum
 """
 
 
-fileNames = glob.glob('./nh3/*fits')
-#fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
+#fileNames = glob.glob('./nh3_all/*fits')
+fileNames = glob.glob('./nh3/GSerpBolo2*.n*.fits')
 #fileNames = glob.glob('./nh3/G010*.n*.fits')
 
 a = np.arange(len(fileNames))
@@ -52,18 +53,55 @@ t_int = Table(names=('FILENAME','W11','W22','W33','W44'),dtype=('S20','f5','f5',
 t_w11 = Table(names=('FILENAME','W11_obs','W11_emp','RMS-error; obs','RMS-error; emp','W11_obs - W11_emp','%-error'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
 t_pars = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 
-# This creates the dictionary to then pass to pyspeckit to create the fit
-# value is the pixel size for filtering with median_filter
-value = 17
 c = 2.99792458e8
+
+# Fitting using convolution method
+voff_lines = np.array([19.8513, 
+                  19.3159, 
+                  7.88669, 
+                  7.46967, 
+                  7.35132, 
+                  0.460409, 
+                  0.322042, 
+                  -0.0751680, 
+                  -0.213003,  
+                  0.311034, 
+                  0.192266, 
+                  -0.132382, 
+                  -0.250923, 
+                  -7.23349, 
+                  -7.37280, 
+                  -7.81526, 
+                  -19.4117, 
+                  -19.5500])
+
+tau_wts = np.array([0.0740740, 
+              0.148148, 
+              0.0925930, 
+              0.166667, 
+              0.0185190, 
+              0.0370370, 
+              0.0185190, 
+              0.0185190, 
+              0.0925930, 
+              0.0333330, 
+              0.300000, 
+              0.466667, 
+              0.0333330, 
+              0.0925930, 
+              0.0185190, 
+              0.166667, 
+              0.0740740, 
+              0.148148])
+
+deltanu = -1*voff_lines/((c/1000)*23.6944955e9)
+
 
 # One big thing to note is that the guess was determined with a bias towords the GSerpBolo .fits files
 for thisObject in objects: 
     spectrum = {}
     fnameT = './nh3_figures/'+thisObject+'.png'
     fnameT2 = './nh3_figures2/'+thisObject+'.png'
-    guess = [15, 7, 15, 2, 30, 0]
-    w_row = []
 
     if os.path.exists('./nh3/'+thisObject+'.n11.fits'):
        data1 = fits.getdata('./nh3/'+thisObject+'.n11.fits')
@@ -71,13 +109,44 @@ for thisObject in objects:
        nu1 = data1['CDELT1']*(A1-data1['CRPIX1']+1)+data1['CRVAL1']
        v1 = c*(nu1/data1['RESTFREQ']-1)
 
-       # Median filter used for smoothing
-       max_index = np.nanargmax(median_filter(data1['DATA'].T,size=value))
-       v_medf = median_filter(v1,size=value)
-       guess[4] = v_medf[max_index]/1000
-
        spec1 = psk.Spectrum(data=data1['DATA'].T.squeeze(),unit='K',xarr=v1,xarrkwargs={'unit':'m/s','refX':data1['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spectrum['oneone'] = spec1
+
+       # Fitting using convolution method
+       linewidth = 0.5
+       chanwidth = (spec1.xarr[1]-spec1.xarr[0])/1e3
+       ftdata = fft.fft(spec1.data.filled(0))
+       tvals = fft.fftfreq(len(spec1.data))/chanwidth
+       deltafcns = np.zeros(spec1.data.shape,dtype=np.complex)
+       
+       for idx, dv in enumerate(voff_lines):
+          deltafcns += tau_wts[idx]*(np.cos(2*np.pi*dv*tvals)+
+                               1j*np.sin(2*np.pi*dv*tvals))*\
+                               np.exp(-tvals**2*(linewidth/chanwidth)**2/(2))
+
+       ccor = np.real((fft.ifft(np.conj(ftdata)*deltafcns))[::-1])
+
+       peakIndex = np.argmax(ccor)
+
+       #pull out a 6 km/s slice around the peak
+       deltachan = 6.0 / chanwidth
+       t = (spec1.data.filled(0))[(peakIndex-deltachan):(peakIndex+deltachan)]
+       v = np.array(spec1.xarr)[(peakIndex-deltachan):(peakIndex+deltachan)]
+       # Calculate line widht.
+       sigv = np.sqrt(abs(np.sum(t*v**2)/np.sum(t)-(np.sum(t*v)/np.sum(t))**2))/1e3
+
+       # Peak of cross correlation is the brightness.
+       v0 = np.float(spec1.xarr[peakIndex])/1e3
+       # Set the excitation temperature to be between CMB and 20 K
+       # and equal to the peak brightness + 2.73 if valid.
+       tex = np.min([np.max([spec1.data[peakIndex],0])+2.73,20])
+
+       guess = [20, # 20 K kinetic temperature
+           tex,  #
+           15, # Log NH3
+           sigv, # velocity dispersion
+           v0,
+           0.5]
 
     if os.path.exists('./nh3/'+thisObject+'.n22.fits'):
        data2 = fits.getdata('./nh3/'+thisObject+'.n22.fits')

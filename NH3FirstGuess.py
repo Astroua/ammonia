@@ -56,6 +56,8 @@ def NH3FirstGuess(pskobj):
                                np.exp(-tvals**2*(linewidth/chanwidth)**2/(2))
   ccor = np.real((fft.ifft(np.conj(ftdata)*deltafcns))[::-1])
 
+  peakIndex = np.argmax(ccor)
+
   #pull out a 6 km/s slice around the peak
   deltachan = 6.0 / chanwidth
   t = (pskobj.data.filled(0))[(peakIndex-deltachan):(peakIndex+deltachan)]
@@ -65,7 +67,7 @@ def NH3FirstGuess(pskobj):
 
 
   # Peak of cross correlation is the brightness.
-  peakIndex = np.argmax(ccor)
+
   v0 = np.float(pskobj.xarr[peakIndex])/1e3
   # Set the excitation temperature to be between CMB and 20 K
   # and equal to the peak brightness + 2.73 if valid.
