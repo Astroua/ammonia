@@ -97,6 +97,8 @@ tau_wts = np.array([0.0740740,
 
 deltanu = -1*voff_lines/((c/1000)*23.6944955e9)
 
+v0_arr = []
+tex_arr = []
 sigv_arr = []
 
 for thisObject in objects: 
@@ -129,20 +131,24 @@ for thisObject in objects:
 
        peakIndex = np.argmax(ccor)
 
-       #pull out a 6 km/s slice around the peak
+       # the NaN occurs cause it tries to pull values out the array; either use a smaller range; 3km/s?
+       # or use if statement to pull just to stop the end/beginning of the array
+       # pull out a 6 km/s slice around the peak
        deltachan = 6.0 / chanwidth
        t = (spec1.data.filled(0))[(peakIndex-deltachan):(peakIndex+deltachan)]
        v = np.array(spec1.xarr)[(peakIndex-deltachan):(peakIndex+deltachan)]
        # Calculate line widht.
        sigv = np.sqrt(abs(np.sum(t*v**2)/np.sum(t)-(np.sum(t*v)/np.sum(t))**2))/1e3
 
-       sigv_arr.append(sigv)
-
        # Peak of cross correlation is the brightness.
        v0 = np.float(spec1.xarr[peakIndex])/1e3
        # Set the excitation temperature to be between CMB and 20 K
        # and equal to the peak brightness + 2.73 if valid.
-       tex = np.min([np.max([spec1.data[peakIndex],0])+2.73,20])
+       tex = np.min([np.max([spec1.data.filled(0)[peakIndex],0])+2.73,20])
+
+       tex_arr.append(tex)
+       v0_arr.append(v0)
+       sigv_arr.append(sigv)
 
        guess = [20, # 20 K kinetic temperature
            tex,  #
@@ -205,17 +211,14 @@ for thisObject in objects:
        W11_row = [thisObject,W11_obs,W11_emp,W11_oerr,W11_eerr,W11_diff,W11_perc]
        t_w11.add_row(W11_row)
 
+       w_int = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),666,666]
        if os.path.exists('./nh3/'+thisObject+'.n33.fits'):
-          if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
-             w_row = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),np.sum(spec3.specfit.model)*(v3.max()-v3.min())/(len(v3)*1000),np.sum(spec4.specfit.model)*(v4.max()-v4.min())/(len(v4)*1000)]
-             t_int.add_row(w_row)
-          else:
-             w_row = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),np.sum(spec3.specfit.model)*(v3.max()-v3.min())/(len(v3)*1000),666]
-             t_int.add_row(w_row)
+          w_int[3] = np.sum(spec3.specfit.model)*(v3.max()-v3.min())/(len(v3)*1000)
+       
+       if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
+          w_int[4] = np.sum(spec4.specfit.model)*(v4.max()-v4.min())/(len(v4)*1000)
 
-       else: 
-          w_row = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),666,666]
-          t_int.add_row(w_row)
+       t_int.add_row(w_int)
 
        plt.savefig(fnameT.format(thisObject), format='png')
        plt.close()
@@ -223,7 +226,6 @@ for thisObject in objects:
     else:
        plt.savefig(fnameT2.format(thisObject), format='png')
        plt.close()
-
 
 # Fit parameter histograms
 plt.clf()            
