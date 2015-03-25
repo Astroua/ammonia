@@ -52,6 +52,7 @@ objects = sorted(set(objects))
 t_int = Table(names=('FILENAME','W11','W22','W33','W44'),dtype=('S20','f5','f5','f5','f5'))
 t_w11 = Table(names=('FILENAME','W11_obs','W11_emp','RMS-error; obs','RMS-error; emp','W11_obs - W11_emp','%-error'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
 t_pars = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
+t_errs = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 
 c = 2.99792458e8
 
@@ -96,6 +97,8 @@ tau_wts = np.array([0.0740740,
 
 deltanu = -1*voff_lines/((c/1000)*23.6944955e9)
 
+sigv_arr = []
+
 for thisObject in objects: 
     spectrum = {}
     fnameT = './nh3_figures/'+thisObject+'.png'
@@ -133,6 +136,8 @@ for thisObject in objects:
        # Calculate line widht.
        sigv = np.sqrt(abs(np.sum(t*v**2)/np.sum(t)-(np.sum(t*v)/np.sum(t))**2))/1e3
 
+       sigv_arr.append(sigv)
+
        # Peak of cross correlation is the brightness.
        v0 = np.float(spec1.xarr[peakIndex])/1e3
        # Set the excitation temperature to be between CMB and 20 K
@@ -142,7 +147,7 @@ for thisObject in objects:
        guess = [20, # 20 K kinetic temperature
            tex,  #
            15, # Log NH3
-           sigv, # velocity dispersion
+           1, # velocity dispersion
            v0,
            0.5]
 
@@ -174,10 +179,14 @@ for thisObject in objects:
     
     # Filters out good and bad fits
     if -150 < spectra1.specfit.modelpars[4] < 150:       
-       spec_row = spectra1.specfit.modelpars    	        
-       spec_row.insert(0,thisObject)                 	
-       t_pars.add_row(spec_row) 
+       spec_pars = spectra1.specfit.modelpars    	        
+       spec_pars.insert(0,thisObject)                 	
+       t_pars.add_row(spec_pars) 
 			        
+       spec_errs = spectra1.specfit.modelerrs    	        
+       spec_errs.insert(0,thisObject)                 	
+       t_errs.add_row(spec_errs) 
+
       # Calculate W11, W22, W33, W44
       # Error calculation for W11
        W11_oarr = spec1.specfit.model
@@ -196,6 +205,18 @@ for thisObject in objects:
        W11_row = [thisObject,W11_obs,W11_emp,W11_oerr,W11_eerr,W11_diff,W11_perc]
        t_w11.add_row(W11_row)
 
+       if os.path.exists('./nh3/'+thisObject+'.n33.fits'):
+          if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
+             w_row = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),np.sum(spec3.specfit.model)*(v3.max()-v3.min())/(len(v3)*1000),np.sum(spec4.specfit.model)*(v4.max()-v4.min())/(len(v4)*1000)]
+             t_int.add_row(w_row)
+          else:
+             w_row = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),np.sum(spec3.specfit.model)*(v3.max()-v3.min())/(len(v3)*1000),666]
+             t_int.add_row(w_row)
+
+       else: 
+          w_row = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),666,666]
+          t_int.add_row(w_row)
+
        plt.savefig(fnameT.format(thisObject), format='png')
        plt.close()
 
@@ -203,18 +224,6 @@ for thisObject in objects:
        plt.savefig(fnameT2.format(thisObject), format='png')
        plt.close()
 
-
-"""
-       if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
-          w_row = [thisObject,np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec2.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec3.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec4.specfit.model)*(np.float(4096-0)/np.float(4096))]
-          t_int.add_row(w_row)
-
-       # If W44 = 666, then it means N/A cause astropy.table can accept either float/string but not both
-       else: 
-          w_row = [thisObject,np.sum(spec1.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec2.specfit.model)*(np.float(4096-0)/np.float(4096)),np.sum(spec3.specfit.model)*(np.float(4096-0)/np.float(4096)),666]
-          t_int.add_row(w_row)
-"""
-          
 
 # Fit parameter histograms
 plt.clf()            
