@@ -183,39 +183,40 @@ for thisObject in objects:
 						
     spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess)
 
+    # Filters out good and bad fits
+    if -150 < spectra1.specfit.modelpars[4] < 150:  
     # Here we generate values to insert into tables
-    spec_pars = spectra1.specfit.modelpars    	        
-    spec_pars.insert(0,thisObject)                 	
+       spec_pars = spectra1.specfit.modelpars    	        
+       spec_pars.insert(0,thisObject)                 	
 			        
-    spec_errs = spectra1.specfit.modelerrs    	        
-    spec_errs.insert(0,thisObject)                 	
+       spec_errs = spectra1.specfit.modelerrs    	        
+       spec_errs.insert(0,thisObject)                 	
 
     # Error calculation for W11 between observational and empirical
-    W11_oarr = spec1.specfit.model
-    W11_obs = np.sum(W11_oarr)*(v1.max()-v1.min())/(len(v1)*1000)
-    W11_index = np.where(W11_oarr > 1e-6)
-    W11_emp = np.sum(spec1.data[W11_index])*(v1.max()-v1.min())/(len(v1)*1000)
-    W11_diff = W11_obs - W11_emp
-    W11_perc = abs(((W11_obs - W11_emp)*100)/W11_obs)
-    W11_oerr = np.nanstd(W11_oarr)
-    NoSignal = np.where(W11_oarr < 1e-6)
-    W11_eerr = np.nanstd(spec1.data[NoSignal])
-    W11_row = [thisObject,W11_obs,W11_emp,W11_oerr,W11_eerr,W11_diff,W11_perc]
+       W11_oarr = spec1.specfit.model
+       W11_obs = np.sum(W11_oarr)*(v1.max()-v1.min())/(len(v1)*1000)
+       W11_index = np.where(W11_oarr > 1e-6)
+       W11_emp = np.sum(spec1.data[W11_index])*(v1.max()-v1.min())/(len(v1)*1000)
+       W11_diff = W11_obs - W11_emp
+       W11_perc = abs(((W11_obs - W11_emp)*100)/W11_obs)
+       W11_oerr = np.nanstd(W11_oarr)
+       NoSignal = np.where(W11_oarr < 1e-6)
+       W11_eerr = np.nanstd(spec1.data[NoSignal])
+       W11_row = [thisObject,W11_obs,W11_emp,W11_oerr,W11_eerr,W11_diff,W11_perc]
     
     # Integrated intensities for all transitions
-    w_int = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),None,None]
-    if os.path.exists('./nh3/'+thisObject+'.n33.fits'):
-       w_int[3] = np.sum(spec3.specfit.model)*(v3.max()-v3.min())/(len(v3)*1000)
+       w_int = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),None,None]
+       if os.path.exists('./nh3/'+thisObject+'.n33.fits'):
+          w_int[3] = np.sum(spec3.specfit.model)*(v3.max()-v3.min())/(len(v3)*1000)
        
-    if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
-       w_int[4] = np.sum(spec4.specfit.model)*(v4.max()-v4.min())/(len(v4)*1000)
+       if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
+          w_int[4] = np.sum(spec4.specfit.model)*(v4.max()-v4.min())/(len(v4)*1000)
     
-    # Filters out good and bad fits
-    if -145 < spectra1.specfit.modelpars[4] < 145:  
        t_pars.add_row(spec_pars) 
        t_errs.add_row(spec_errs) 
        t_w11.add_row(W11_row)   
        t_int.add_row(w_int)
+
        plt.savefig(fnameT.format(thisObject), format='png')
        plt.close()
 
