@@ -1,6 +1,6 @@
 import numpy.fft as fft
 import numpy as np
-def NH3FirstGuess(pskobj):
+def NH3FirstGuess(pskobj,vmin=-250.0,vmax=250):
   
   ckms = 2.99792458e5
   
@@ -46,7 +46,7 @@ def NH3FirstGuess(pskobj):
 
   #guess at typical line width for NH3 line
   linewidth = 0.5
-  chanwidth = (pskobj.xarr[1]-pskobj.xarr[0])/1e3
+  chanwidth = (pskobj.xarr[1]-pskobj.xarr[0])
   ftdata = fft.fft(pskobj.data.filled(0))
   tvals = fft.fftfreq(len(pskobj.data))/chanwidth
   deltafcns = np.zeros(pskobj.data.shape,dtype=np.complex)
@@ -56,19 +56,20 @@ def NH3FirstGuess(pskobj):
                                np.exp(-tvals**2*(linewidth/chanwidth)**2/(2))
   ccor = np.real((fft.ifft(np.conj(ftdata)*deltafcns))[::-1])
 
-  peakIndex = np.argmax(ccor)
-
+  vaxis = np.array(pskobj.xarr.as_unit('km/s'))
+  subsetidx = (vaxis>vmin)*(vaxis<vmax)*np.isfinite(np.array(pskobj.data))
+  peakIndex = np.argmax(ccor[subsetidx])
+  
   #pull out a 6 km/s slice around the peak
-  deltachan = 6.0 / chanwidth
-  t = (pskobj.data.filled(0))[(peakIndex-deltachan):(peakIndex+deltachan)]
-  v = np.array(pskobj.xarr)[(peakIndex-deltachan):(peakIndex+deltachan)]
-  # Calculate line widht.
-  sigv = np.sqrt(np.sum(t*v**2)/np.sum(t)-(np.sum(t*v)/np.sum(t))**2)/1e3
-
+  deltachan = np.abs(3.0 / chanwidth)
+  t = ((pskobj.data.filled(0))[subsetidx])[(peakIndex-deltachan):(peakIndex+deltachan)]
+  v = (vaxis[subsetidx])[(peakIndex-deltachan):(peakIndex+deltachan)]
+  # Calculate line width.
+  sigv = np.sqrt(np.sum(t*v**2)/np.sum(t)-(np.sum(t*v)/np.sum(t))**2)
 
   # Peak of cross correlation is the brightness.
 
-  v0 = np.float(pskobj.xarr[peakIndex])/1e3
+  v0 = np.float((vaxis[subsetidx])[peakIndex])
   # Set the excitation temperature to be between CMB and 20 K
   # and equal to the peak brightness + 2.73 if valid.
   tex = np.min([np.max([pskobj.data[peakIndex],0])+2.73,20])
