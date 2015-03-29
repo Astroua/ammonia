@@ -12,37 +12,38 @@ import matplotlib.pyplot as plt
 from astropy.table import Table
 from scipy.ndimage.filters import median_filter
 
+execfile('NH3FirstGuess.py')
+execfile('kdist.py')
+
 """
 Variables:  data* = spectral data extracted from .fits file
 	    A* = array used to calculate nu*
 	    nu* = frequency
 	    v* = doppler shift velocity
 
-	    v_medf = median filter velocity for smoothing
-	    max_index = index of the maximum value of the spectrum
-
-	    guess = "guesses" of fit paramaters to pass through pyspeckit
+	    guess = "guesses" of fit paramaters to pass through pyspeckit; derived via cross-correlation
 	    spec* = Spectrum object created from pyspeckit
 	    spectrum = dictionary to pass through NH3 fitting from pyspeckit
 	    
 	    Note: * is the value of the transition; ie. 1 = (1,1), 2 = (2,2), etc.
 	  
-
 Output:  nh3dict = Dictionary of the entire spectrum
 	 Histogram of fit parameters
+
 	 t_par = table of fit parameters
 	 t_int = table of integrated intensities
 	 t_W11 = table of W11; with errors
+	 t_errs = table of errors of fit parameters
+
 	 creates fitted spectra plots and saves it all into a directory
 	 Bivariate plots with fit parameters
 	
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
 
-
 #fileNames = glob.glob('./nh3_all/*fits')
-fileNames = glob.glob('./nh3_all/GSerpBolo3*.n*.fits')
-#fileNames = glob.glob('./nh3/G010*.n*.fits')
+#fileNames = glob.glob('./nh3_all/GSerpBolo1*.n*.fits')
+fileNames = glob.glob('./nh3/G014*.n*.fits')
 
 a = np.arange(len(fileNames))
 objects = [((os.path.basename(fileNames[name])))[0:-9] for name in range(max(a))]
@@ -50,56 +51,12 @@ objects = sorted(set(objects))
 
 # Tables; Note: We can extract an array from the astropy.Tables that are generated; ex. t_pars['TKIN']
 t_int = Table(names=('FILENAME','W11','W22','W33','W44'),dtype=('S20','f5','f5','f5','f5'))
-t_w11 = Table(names=('FILENAME','W11_obs','W11_emp','RMS-error; obs','RMS-error; emp','W11_obs - W11_emp','%-error'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
-t_pars = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
-t_errs = Table(names=('FILENAME','TKIN','TEX','N(0)','SIGMA(0)','V(0)','F_0(0)'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
+t_w11 = Table(names=('FILENAME','W11OBS','W11EMP','RMSOBS','RMSEMP','DIFF','PERCERR'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
+t_pars = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
+t_errs = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
+t_dist = Table(names=('FILENAME','RGAL','DIST','G.LONG','G.LAT'),dtype=('S20','f5','f5','f5','f5'))
 
 c = 2.99792458e8
-
-# Fitting using convolution method
-voff_lines = np.array([19.8513, 
-                  19.3159, 
-                  7.88669, 
-                  7.46967, 
-                  7.35132, 
-                  0.460409, 
-                  0.322042, 
-                  -0.0751680, 
-                  -0.213003,  
-                  0.311034, 
-                  0.192266, 
-                  -0.132382, 
-                  -0.250923, 
-                  -7.23349, 
-                  -7.37280, 
-                  -7.81526, 
-                  -19.4117, 
-                  -19.5500])
-
-tau_wts = np.array([0.0740740, 
-              0.148148, 
-              0.0925930, 
-              0.166667, 
-              0.0185190, 
-              0.0370370, 
-              0.0185190, 
-              0.0185190, 
-              0.0925930, 
-              0.0333330, 
-              0.300000, 
-              0.466667, 
-              0.0333330, 
-              0.0925930, 
-              0.0185190, 
-              0.166667, 
-              0.0740740, 
-              0.148148])
-
-deltanu = -1*voff_lines/((c/1000)*23.6944955e9)
-
-v0_arr = []
-tex_arr = []
-sigv_arr = []
 
 for thisObject in objects: 
     spectrum = {}
@@ -115,47 +72,8 @@ for thisObject in objects:
        spec1 = psk.Spectrum(data=data1['DATA'].T.squeeze(),unit='K',xarr=v1,xarrkwargs={'unit':'m/s','refX':data1['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spectrum['oneone'] = spec1
 
-       # Fitting using convolution method
-       linewidth = 0.5
-       chanwidth = (spec1.xarr[1]-spec1.xarr[0])/1e3
-       ftdata = fft.fft(spec1.data.filled(0))
-       tvals = fft.fftfreq(len(spec1.data))/chanwidth
-       deltafcns = np.zeros(spec1.data.shape,dtype=np.complex)
-       
-       for idx, dv in enumerate(voff_lines):
-          deltafcns += tau_wts[idx]*(np.cos(2*np.pi*dv*tvals)+
-                               1j*np.sin(2*np.pi*dv*tvals))*\
-                               np.exp(-tvals**2*(linewidth/chanwidth)**2/(2))
-
-       ccor = np.real((fft.ifft(np.conj(ftdata)*deltafcns))[::-1])
-
-       peakIndex = np.argmax(ccor)
-
-       # the NaN occurs cause it tries to pull values out the array; either use a smaller range; 3km/s?
-       # or use if statement to pull just to stop the end/beginning of the array
-       # pull out a 6 km/s slice around the peak
-       deltachan = 6.0 / chanwidth
-       t = (spec1.data.filled(0))[(peakIndex-deltachan):(peakIndex+deltachan)]
-       v = np.array(spec1.xarr)[(peakIndex-deltachan):(peakIndex+deltachan)]
-       # Calculate line widht.
-       sigv = np.sqrt(abs(np.sum(t*v**2)/np.sum(t)-(np.sum(t*v)/np.sum(t))**2))/1e3
-
-       # Peak of cross correlation is the brightness.
-       v0 = np.float(spec1.xarr[peakIndex])/1e3
-       # Set the excitation temperature to be between CMB and 20 K
-       # and equal to the peak brightness + 2.73 if valid.
-       tex = np.min([np.max([spec1.data.filled(0)[peakIndex],0])+2.73,20])
-
-       tex_arr.append(tex)
-       v0_arr.append(v0)
-       sigv_arr.append(sigv)
-
-       guess = [20, # 20 K kinetic temperature
-           tex,  #
-           15, # Log NH3
-           1, # velocity dispersion
-           v0,
-           0.5]
+       # Cross-correlation method to get first guess
+       guess = NH3FirstGuess(spec1,vmin=-250.0,vmax=250)
 
     if os.path.exists('./nh3_all/'+thisObject+'.n22.fits'):
        data2 = fits.getdata('./nh3_all/'+thisObject+'.n22.fits')
@@ -192,6 +110,10 @@ for thisObject in objects:
        spec_errs = spectra1.specfit.modelerrs    	        
        spec_errs.insert(0,thisObject)                 	
 
+    # Distances and galactic coordinates
+       distance, rgal = kdist(data1['TRGTLONG'], data1['TRGTLAT'], guess[4], rrgal = True)
+       d_row = [thisObject,distance,rgal,data1['TRGTLONG'], data1['TRGTLAT']]
+
     # Error calculation for W11 between observational and empirical
        W11_oarr = spec1.specfit.model
        W11_obs = np.sum(W11_oarr)*(v1.max()-v1.min())/(len(v1)*1000)
@@ -216,6 +138,7 @@ for thisObject in objects:
        t_errs.add_row(spec_errs) 
        t_w11.add_row(W11_row)   
        t_int.add_row(w_int)
+       t_dist.add_row(d_row)
 
        plt.savefig(fnameT.format(thisObject), format='png')
        plt.close()
@@ -224,12 +147,22 @@ for thisObject in objects:
        plt.savefig(fnameT2.format(thisObject), format='png')
        plt.close()
 
-# Save tables after loop is done
+# Save tables after loop is done; note we get errors as we can't overwrite it
+"""
 t_pars.write('./nh3_tables/nh3_pars.fits',format='fits')
 t_errs.write('./nh3_tables/nh3_errs.fits',format='fits')
 t_w11.write('./nh3_tables/nh3_w11.fits',format='fits')
 t_int.write('./nh3_tables/nh3_int.fits',format='fits')
-       
+t_dist.write('./nh3_tables/nh3_dist.fits',format='fits')
+"""   
+
+print t_pars
+print t_errs
+print t_w11
+print t_int
+print t_dist
+
+    
 # Fit parameter histograms
 plt.clf()            
 py.hist(t_pars['TKIN'],bins=100)
@@ -248,7 +181,7 @@ plt.savefig('./ammonia_plots/histogram_tex.png', format='png')
 plt.close()
 
 plt.clf()            
-py.hist(t_pars['N(0)'],bins=100)
+py.hist(t_pars['N'],bins=100)
 plt.xlabel('Column Density')
 plt.ylabel('Numbers')
 plt.title('Histogram of Column Density ($log(N)$)')
@@ -256,7 +189,7 @@ plt.savefig('./ammonia_plots/histogram_N.png', format='png')
 plt.close()
 
 plt.clf()            
-py.hist(t_pars['SIGMA(0)'],bins=100)
+py.hist(t_pars['SIGV'],bins=100)
 plt.xlabel('Line Width ($cm^{-2}$)')
 plt.ylabel('Numbers')
 plt.title('Histogram of Line Width ($\sigma$)')
@@ -264,7 +197,7 @@ plt.savefig('./ammonia_plots/histogram_sigma.png', format='png')
 plt.close()
 
 plt.clf()            
-py.hist(t_pars['V(0)'],bins=100)
+py.hist(t_pars['V'],bins=100)
 plt.xlabel('Line-of-Sight Velocity (km/s)')
 plt.ylabel('Numbers')
 plt.title('Histogram of Line-of-Sight Velocity ($v$)')
@@ -274,7 +207,7 @@ plt.close()
 
 # Scatter plots with fit parameters
 plt.clf()            
-plt.scatter(t_pars['TKIN'],t_pars['SIGMA(0)'])
+plt.scatter(t_pars['TKIN'],t_pars['SIGV'])
 plt.xlabel('Kinetic Temperature (K)')
 plt.ylabel('Line Width ($cm^{-2}$)')
 plt.title('Kinetic Temperature ($T_k$) and Line Width ($\sigma$)')
@@ -290,7 +223,7 @@ plt.savefig('./ammonia_plots/tkin_tex.png', format='png')
 plt.close()
 
 plt.clf()            
-plt.scatter(t_pars['N(0)'],t_pars['TKIN'])
+plt.scatter(t_pars['N'],t_pars['TKIN'])
 plt.ylabel('Kinetic Temperature (K)')
 plt.xlabel('Column Density (log(N))')
 plt.title('Column Density ($log(N)$) vs Kinetic Temperature ($T_k$)')
@@ -304,7 +237,7 @@ c_s = np.zeros(len(t_pars['TKIN']),dtype = np.float64)
 Ma = np.zeros(len(t_pars['TKIN']),dtype = np.float64)
 for i in range(0,len(t_pars['TKIN'])):
    c_s[i] = math.sqrt(kb*t_pars['TKIN'][i]/m)
-   Ma[i] = t_pars['SIGMA(0)'][i]/(np.float(c_s[i])/1000)
+   Ma[i] = t_pars['SIGV'][i]/(np.float(c_s[i])/1000)
 
 plt.clf()            
 plt.scatter(Ma,t_pars['TKIN'])
