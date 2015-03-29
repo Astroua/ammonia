@@ -46,7 +46,7 @@ def NH3FirstGuess(pskobj,vmin=-250.0,vmax=250):
 
   #guess at typical line width for NH3 line
   linewidth = 0.5
-  chanwidth = (pskobj.xarr[1]-pskobj.xarr[0])
+  chanwidth = (pskobj.xarr[1]-pskobj.xarr[0])/1e3
   ftdata = fft.fft(pskobj.data.filled(0))
   tvals = fft.fftfreq(len(pskobj.data))/chanwidth
   deltafcns = np.zeros(pskobj.data.shape,dtype=np.complex)
@@ -65,7 +65,10 @@ def NH3FirstGuess(pskobj,vmin=-250.0,vmax=250):
   t = ((pskobj.data.filled(0))[subsetidx])[(peakIndex-deltachan):(peakIndex+deltachan)]
   v = (vaxis[subsetidx])[(peakIndex-deltachan):(peakIndex+deltachan)]
   # Calculate line width.
-  sigv = np.sqrt(np.sum(t*v**2)/np.sum(t)-(np.sum(t*v)/np.sum(t))**2)
+  sigv = np.sqrt(abs(np.sum(t*v**2)/np.sum(t)-(np.sum(t*v)/np.sum(t))**2))
+
+  if (np.isnan(sigv)):
+    sigv = 0.85840189 # mean of sigv from first set of data from ./nh3_all/
 
   # Peak of cross correlation is the brightness.
 
