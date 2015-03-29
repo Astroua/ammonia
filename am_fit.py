@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 from astropy.table import Table
 from scipy.ndimage.filters import median_filter
 
-execfile('NH3FirstGuess.py')
-execfile('kdist.py')
+from kdist import *
+from NH3FirstGuess import *
 
 """
 Variables:  data* = spectral data extracted from .fits file
@@ -42,8 +42,8 @@ Output:  nh3dict = Dictionary of the entire spectrum
 """
 
 #fileNames = glob.glob('./nh3_all/*fits')
-#fileNames = glob.glob('./nh3_all/GSerpBolo1*.n*.fits')
-fileNames = glob.glob('./nh3/G014*.n*.fits')
+fileNames = glob.glob('./nh3_all/BS*.fits')
+#fileNames = glob.glob('./nh3/G014*.n*.fits')
 
 a = np.arange(len(fileNames))
 objects = [((os.path.basename(fileNames[name])))[0:-9] for name in range(max(a))]
@@ -102,49 +102,60 @@ for thisObject in objects:
     spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess)
 
     # Filters out good and bad fits
-    if -150 < spectra1.specfit.modelpars[4] < 150:  
-    # Here we generate values to insert into tables
-       spec_pars = spectra1.specfit.modelpars    	        
-       spec_pars.insert(0,thisObject)                 	
+    if -150 < spectra1.specfit.modelpars[4] < 150:
+
+       # Further filtering out bad fits with Tk < 8 and Tex < 3
+       if spectra1.specfit.modelpars[0] < 8:
+          plt.savefig(fnameT2.format(thisObject), dpi = 100, format='png')
+          plt.close()        
+  
+       elif spectra1.specfit.modelpars[1] < 3:
+          plt.savefig(fnameT2.format(thisObject), dpi = 100, format='png')
+          plt.close()
+
+       else:  
+          # The good fits are stored in tables
+          spec_pars = spectra1.specfit.modelpars    	        
+          spec_pars.insert(0,thisObject)                 	
 			        
-       spec_errs = spectra1.specfit.modelerrs    	        
-       spec_errs.insert(0,thisObject)                 	
+          spec_errs = spectra1.specfit.modelerrs    	        
+          spec_errs.insert(0,thisObject)                 	
 
-    # Distances and galactic coordinates
-       distance, rgal = kdist(data1['TRGTLONG'], data1['TRGTLAT'], guess[4], rrgal = True)
-       d_row = [thisObject,distance,rgal,data1['TRGTLONG'], data1['TRGTLAT']]
+          # Distances and galactic coordinates
+          distance, rgal = kdist(data1['TRGTLONG'], data1['TRGTLAT'], guess[4], rrgal = True)
+          d_row = [thisObject,distance,rgal,data1['TRGTLONG'], data1['TRGTLAT']]
 
-    # Error calculation for W11 between observational and empirical
-       W11_oarr = spec1.specfit.model
-       W11_obs = np.sum(W11_oarr)*(v1.max()-v1.min())/(len(v1)*1000)
-       W11_index = np.where(W11_oarr > 1e-6)
-       W11_emp = np.sum(spec1.data[W11_index])*(v1.max()-v1.min())/(len(v1)*1000)
-       W11_diff = W11_obs - W11_emp
-       W11_perc = abs(((W11_obs - W11_emp)*100)/W11_obs)
-       W11_oerr = np.nanstd(W11_oarr)
-       NoSignal = np.where(W11_oarr < 1e-6)
-       W11_eerr = np.nanstd(spec1.data[NoSignal])
-       W11_row = [thisObject,W11_obs,W11_emp,W11_oerr,W11_eerr,W11_diff,W11_perc]
+          # Error calculation for W11 between observational and empirical
+          W11_oarr = spec1.specfit.model
+          W11_obs = np.sum(W11_oarr)*(v1.max()-v1.min())/(len(v1)*1000)
+          W11_index = np.where(W11_oarr > 1e-6)
+          W11_emp = np.sum(spec1.data[W11_index])*(v1.max()-v1.min())/(len(v1)*1000)
+          W11_diff = W11_obs - W11_emp
+          W11_perc = abs(((W11_obs - W11_emp)*100)/W11_obs)
+          W11_oerr = np.nanstd(W11_oarr)
+          NoSignal = np.where(W11_oarr < 1e-6)
+          W11_eerr = np.nanstd(spec1.data[NoSignal])
+          W11_row = [thisObject,W11_obs,W11_emp,W11_oerr,W11_eerr,W11_diff,W11_perc]
     
-    # Integrated intensities for all transitions
-       w_int = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),None,None]
-       if os.path.exists('./nh3/'+thisObject+'.n33.fits'):
-          w_int[3] = np.sum(spec3.specfit.model)*(v3.max()-v3.min())/(len(v3)*1000)
+          # Integrated intensities for all transitions
+          w_int = [thisObject,np.sum(spec1.specfit.model)*(v1.max()-v1.min())/(len(v1)*1000),np.sum(spec2.specfit.model)*(v2.max()-v2.min())/(len(v2)*1000),None,None]
+          if os.path.exists('./nh3/'+thisObject+'.n33.fits'):
+             w_int[3] = np.sum(spec3.specfit.model)*(v3.max()-v3.min())/(len(v3)*1000)
        
-       if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
-          w_int[4] = np.sum(spec4.specfit.model)*(v4.max()-v4.min())/(len(v4)*1000)
+          if os.path.exists('./nh3/'+thisObject+'.n44.fits'):
+             w_int[4] = np.sum(spec4.specfit.model)*(v4.max()-v4.min())/(len(v4)*1000)
     
-       t_pars.add_row(spec_pars) 
-       t_errs.add_row(spec_errs) 
-       t_w11.add_row(W11_row)   
-       t_int.add_row(w_int)
-       t_dist.add_row(d_row)
+          t_pars.add_row(spec_pars) 
+          t_errs.add_row(spec_errs) 
+          t_w11.add_row(W11_row)   
+          t_int.add_row(w_int)
+          t_dist.add_row(d_row)
 
-       plt.savefig(fnameT.format(thisObject), format='png')
-       plt.close()
+          plt.savefig(fnameT.format(thisObject), dpi = 100, format='png')
+          plt.close()
 
     else:
-       plt.savefig(fnameT2.format(thisObject), format='png')
+       plt.savefig(fnameT2.format(thisObject), dpi = 100, format='png')
        plt.close()
 
 # Save tables after loop is done; note we get errors as we can't overwrite it
