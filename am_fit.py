@@ -41,8 +41,8 @@ Output:  nh3dict = Dictionary of the entire spectrum
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
 
-#fileNames = glob.glob('./nh3_all/*fits')
-fileNames = glob.glob('./nh3_all/BS*.fits')
+fileNames = glob.glob('./nh3_all/*fits')
+#fileNames = glob.glob('./nh3_all/BS*.fits')
 #fileNames = glob.glob('./nh3/G014*.n*.fits')
 
 a = np.arange(len(fileNames))
@@ -105,11 +105,11 @@ for thisObject in objects:
     if -150 < spectra1.specfit.modelpars[4] < 150:
 
        # Further filtering out bad fits with Tk < 8 and Tex < 3
-       if spectra1.specfit.modelpars[0] < 8:
+       if spectra1.specfit.modelpars[0] < 7.5:
           plt.savefig(fnameT2.format(thisObject), dpi = 100, format='png')
           plt.close()        
   
-       elif spectra1.specfit.modelpars[1] < 3:
+       elif spectra1.specfit.modelpars[1] < 2.9:
           plt.savefig(fnameT2.format(thisObject), dpi = 100, format='png')
           plt.close()
 
@@ -159,13 +159,13 @@ for thisObject in objects:
        plt.close()
 
 # Save tables after loop is done; note we get errors as we can't overwrite it
-"""
+
 t_pars.write('./nh3_tables/nh3_pars.fits',format='fits')
 t_errs.write('./nh3_tables/nh3_errs.fits',format='fits')
 t_w11.write('./nh3_tables/nh3_w11.fits',format='fits')
 t_int.write('./nh3_tables/nh3_int.fits',format='fits')
 t_dist.write('./nh3_tables/nh3_dist.fits',format='fits')
-"""   
+   
 
 print t_pars
 print t_errs
