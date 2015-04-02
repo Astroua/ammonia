@@ -43,8 +43,8 @@ Output:  nh3dict = Dictionary of the entire spectrum
 """
 
 #fileNames = glob.glob('./nh3_all/*fits')
-fileNames = glob.glob('./nh3_all/B*.fits')
-#fileNames = glob.glob('./nh3_all/GSerpBolo*.fits')
+#fileNames = glob.glob('./nh3_all/B*.fits')
+fileNames = glob.glob('./nh3_all/GSerpBolo3*.fits')
 
 a = np.arange(len(fileNames))
 objects = [((os.path.basename(fileNames[name])))[0:-9] for name in range(max(a))]
@@ -54,7 +54,7 @@ objects = sorted(set(objects))
 t_int = Table(names=('FILENAME','W11','W22','W33','W44'),dtype=('S20','f5','f5','f5','f5'))
 t_w11 = Table(names=('FILENAME','W11OBS','W11EMP','RMSOBS','RMSEMP','DIFF','PERCERR'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
 t_pars = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
-t_errs = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
+t_errs = Table(names=('FILENAME','TKINERR','TEXERR','NERR','SIGVERR','VERR','FERR'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 t_dist = Table(names=('FILENAME','DIST','RGAL','G.LONG','G.LAT'),dtype=('S20','f5','f5','f5','f5'))
 
 c = 2.99792458e8
@@ -125,7 +125,7 @@ for thisObject in objects:
           # Distances and galactic coordinates
           glong, glat = parse_coords(data1)
           distance, rgal = kdist(glong, glat, spectra1.specfit.modelpars[4], rrgal = True)
-          d_row = [thisObject,distance,rgal,glong, glat]
+          d_row = [thisObject,distance,rgal,glong,glat]
 
           # Error calculation for W11 between observational and empirical
           W11_oarr = spec1.specfit.model
@@ -161,13 +161,13 @@ for thisObject in objects:
        plt.close()
 
 # Save tables after loop is done; note we get errors as we can't overwrite it
-
+"""
 t_pars.write('./nh3_tables/nh3_pars.fits',format='fits')
 t_errs.write('./nh3_tables/nh3_errs.fits',format='fits')
 t_w11.write('./nh3_tables/nh3_w11.fits',format='fits')
 t_int.write('./nh3_tables/nh3_int.fits',format='fits')
 t_dist.write('./nh3_tables/nh3_dist.fits',format='fits')
-  
+  """
 
 print t_pars
 print t_errs
