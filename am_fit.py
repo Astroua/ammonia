@@ -6,7 +6,7 @@ import numpy as np
 import numpy.fft as fft
 import pylab as py
 import array
-import pyspeckit as psk
+import pyspeckit
 from astropy.io import fits
 import matplotlib.pyplot as plt
 from astropy.table import Table
@@ -14,6 +14,7 @@ from scipy.ndimage.filters import median_filter
 
 from kdist import *
 from NH3FirstGuess import *
+from parse_coords import *
 
 """
 Variables:  data* = spectral data extracted from .fits file
@@ -41,9 +42,9 @@ Output:  nh3dict = Dictionary of the entire spectrum
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
 
-fileNames = glob.glob('./nh3_all/*fits')
-#fileNames = glob.glob('./nh3_all/BS*.fits')
-#fileNames = glob.glob('./nh3/G014*.n*.fits')
+#fileNames = glob.glob('./nh3_all/*fits')
+fileNames = glob.glob('./nh3_all/B*.fits')
+#fileNames = glob.glob('./nh3_all/GSerpBolo*.fits')
 
 a = np.arange(len(fileNames))
 objects = [((os.path.basename(fileNames[name])))[0:-9] for name in range(max(a))]
@@ -54,7 +55,7 @@ t_int = Table(names=('FILENAME','W11','W22','W33','W44'),dtype=('S20','f5','f5',
 t_w11 = Table(names=('FILENAME','W11OBS','W11EMP','RMSOBS','RMSEMP','DIFF','PERCERR'),dtype=('S20','f5','f5','f5','f5','f5','f5'))
 t_pars = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 t_errs = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
-t_dist = Table(names=('FILENAME','RGAL','DIST','G.LONG','G.LAT'),dtype=('S20','f5','f5','f5','f5'))
+t_dist = Table(names=('FILENAME','DIST','RGAL','G.LONG','G.LAT'),dtype=('S20','f5','f5','f5','f5'))
 
 c = 2.99792458e8
 
@@ -67,9 +68,9 @@ for thisObject in objects:
        data1 = fits.getdata('./nh3_all/'+thisObject+'.n11.fits')
        A1 = np.arange(len(data1['DATA'].T))
        nu1 = data1['CDELT1']*(A1-data1['CRPIX1']+1)+data1['CRVAL1']
-       v1 = c*(nu1/data1['RESTFREQ']-1)
+       v1 = c*(1-nu1/data1['RESTFREQ'])
 
-       spec1 = psk.Spectrum(data=data1['DATA'].T.squeeze(),unit='K',xarr=v1,xarrkwargs={'unit':'m/s','refX':data1['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
+       spec1 = pyspeckit.Spectrum(data=data1['DATA'].T.squeeze(),unit='K',xarr=v1,xarrkwargs={'unit':'m/s','refX':data1['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spectrum['oneone'] = spec1
 
        # Cross-correlation method to get first guess
@@ -79,27 +80,27 @@ for thisObject in objects:
        data2 = fits.getdata('./nh3_all/'+thisObject+'.n22.fits')
        A2 = np.arange(len(data2['DATA'].T))
        nu2 = data2['CDELT1']*(A2-data2['CRPIX1']+1)+data2['CRVAL1']
-       v2 = c*(nu2/data2['RESTFREQ']-1)
-       spec2 = psk.Spectrum(data=data2['DATA'].T.squeeze(),unit='K',xarr=v2,xarrkwargs={'unit':'m/s','refX':data2['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
+       v2 = c*(1-nu2/data2['RESTFREQ'])
+       spec2 = pyspeckit.Spectrum(data=data2['DATA'].T.squeeze(),unit='K',xarr=v2,xarrkwargs={'unit':'m/s','refX':data2['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spectrum['twotwo'] = spec2
 
     if os.path.exists('./nh3_all/'+thisObject+'.n33.fits'):
        data3 = fits.getdata('./nh3_all/'+thisObject+'.n33.fits')
        A3 = np.arange(len(data3['DATA'].T))
        nu3 = data3['CDELT1']*(A3-data3['CRPIX1']+1)+data3['CRVAL1']
-       v3 = c*(nu3/data3['RESTFREQ']-1)
-       spec3 = psk.Spectrum(data=data3['DATA'].T.squeeze(),unit='K',xarr=v3,xarrkwargs={'unit':'m/s','refX':data3['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
+       v3 = c*(1-nu3/data3['RESTFREQ'])
+       spec3 = pyspeckit.Spectrum(data=data3['DATA'].T.squeeze(),unit='K',xarr=v3,xarrkwargs={'unit':'m/s','refX':data3['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spectrum['threethree'] = spec3
 
     if os.path.exists('./nh3_all/'+thisObject+'.n44.fits'):
        data4 = fits.getdata('./nh3_all/'+thisObject+'.n44.fits')
        A4 = np.arange(len(data4['DATA'].T))
        nu4 = data4['CDELT1']*(A4-data4['CRPIX1']+1)+data4['CRVAL1']
-       v4 = c*(nu4/data4['RESTFREQ']-1)
-       spec4 = psk.Spectrum(data=data4['DATA'].T.squeeze(),unit='K',xarr=v4,xarrkwargs={'unit':'m/s','refX':data4['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
+       v4 = c*(1-nu4/data4['RESTFREQ'])
+       spec4 = pyspeckit.Spectrum(data=data4['DATA'].T.squeeze(),unit='K',xarr=v4,xarrkwargs={'unit':'m/s','refX':data4['RESTFREQ']/1E6,'refX_units':'MHz','xtype':'VLSR-RAD'})
        spectrum['fourfour'] = spec4
 						
-    spdict1,spectra1 = psk.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess)
+    spdict1,spectra1 = pyspeckit.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess,fixed=[False,False,False,False,False,True])
 
     # Filters out good and bad fits
     if -150 < spectra1.specfit.modelpars[4] < 150:
@@ -122,8 +123,9 @@ for thisObject in objects:
           spec_errs.insert(0,thisObject)                 	
 
           # Distances and galactic coordinates
-          distance, rgal = kdist(data1['TRGTLONG'], data1['TRGTLAT'], guess[4], rrgal = True)
-          d_row = [thisObject,distance,rgal,data1['TRGTLONG'], data1['TRGTLAT']]
+          glong, glat = parse_coords(data1)
+          distance, rgal = kdist(glong, glat, spectra1.specfit.modelpars[4], rrgal = True)
+          d_row = [thisObject,distance,rgal,glong, glat]
 
           # Error calculation for W11 between observational and empirical
           W11_oarr = spec1.specfit.model
@@ -165,7 +167,7 @@ t_errs.write('./nh3_tables/nh3_errs.fits',format='fits')
 t_w11.write('./nh3_tables/nh3_w11.fits',format='fits')
 t_int.write('./nh3_tables/nh3_int.fits',format='fits')
 t_dist.write('./nh3_tables/nh3_dist.fits',format='fits')
-   
+  
 
 print t_pars
 print t_errs
