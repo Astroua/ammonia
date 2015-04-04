@@ -42,9 +42,12 @@ Output:  nh3dict = Dictionary of the entire spectrum
 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻ 	(╯°□°）╯︵ ┻━┻	(╯°□°）╯︵ ┻━┻
 """
 
-#fileNames = glob.glob('./nh3_all/*fits')
-#fileNames = glob.glob('./nh3_all/B*.fits')
-fileNames = glob.glob('./nh3_all/GSerpBolo3*.fits')
+# Whole set of data
+fileNames = glob.glob('./nh3_all/*fits')
+
+# Small section of data
+fileNames = glob.glob('./nh3_all/G049*.fits')
+
 
 a = np.arange(len(fileNames))
 objects = [((os.path.basename(fileNames[name])))[0:-9] for name in range(max(a))]
@@ -57,12 +60,60 @@ t_pars = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','
 t_errs = Table(names=('FILENAME','TKINERR','TEXERR','NERR','SIGVERR','VERR','FERR'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 t_dist = Table(names=('FILENAME','DIST','RGAL','G.LONG','G.LAT'),dtype=('S20','f5','f5','f5','f5'))
 
+# Good fits but with glong ~ 49 where it can't calculate rgal
+t_parsG = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
+t_distG = Table(names=('FILENAME','G.LONG','G.LAT'),dtype=('S20','f5','f5'))
+
 c = 2.99792458e8
+
+voff_lines = np.array([19.8513, 
+                  19.3159, 
+                  7.88669, 
+                  7.46967, 
+                  7.35132, 
+                  0.460409, 
+                  0.322042, 
+                  -0.0751680, 
+                  -0.213003,  
+                  0.311034, 
+                  0.192266, 
+                  -0.132382, 
+                  -0.250923, 
+                  -7.23349, 
+                  -7.37280, 
+                  -7.81526, 
+                  -19.4117, 
+                  -19.5500])
+
+tau_wts = np.array([0.0740740, 
+              0.148148, 
+              0.0925930, 
+              0.166667, 
+              0.0185190, 
+              0.0370370, 
+              0.0185190, 
+              0.0185190, 
+              0.0925930, 
+              0.0333330, 
+              0.300000, 
+              0.466667, 
+              0.0333330, 
+              0.0925930, 
+              0.0185190, 
+              0.166667, 
+              0.0740740, 
+              0.148148])
+
+deltanu = -1*voff_lines/((c/1000)*23.6944955e9)
+
+vmin = -250
+vmax = 250
 
 for thisObject in objects: 
     spectrum = {}
     fnameT = './nh3_figures/'+thisObject+'.png'
     fnameT2 = './nh3_figures2/'+thisObject+'.png'
+    fnameT3 = './nh3_figures3/'+thisObject+'.png'
 
     if os.path.exists('./nh3_all/'+thisObject+'.n11.fits'):
        data1 = fits.getdata('./nh3_all/'+thisObject+'.n11.fits')
@@ -74,7 +125,45 @@ for thisObject in objects:
        spectrum['oneone'] = spec1
 
        # Cross-correlation method to get first guess
-       guess = NH3FirstGuess(spec1,vmin=-250.0,vmax=250)
+       linewidth = 0.5
+       chanwidth = (spec1.xarr[1]-spec1.xarr[0])/1e3
+       ftdata = fft.fft(spec1.data.filled(0))
+       tvals = fft.fftfreq(len(spec1.data))/chanwidth
+       deltafcns = np.zeros(spec1.data.shape,dtype=np.complex)
+       for idx, dv in enumerate(voff_lines):
+          deltafcns += tau_wts[idx]*(np.cos(2*np.pi*dv*tvals)+
+                               1j*np.sin(2*np.pi*dv*tvals))*\
+                               np.exp(-tvals**2*(linewidth/chanwidth)**2/(2))
+       ccor = np.real((fft.ifft(np.conj(ftdata)*deltafcns))[::-1])
+
+       vaxis = np.array(spec1.xarr.as_unit('km/s'))
+       subsetidx = (vaxis>vmin)*(vaxis<vmax)*np.isfinite(np.array(spec1.data))
+       peakIndex = np.argmax(ccor[subsetidx])
+
+       #pull out a 6 km/s slice around the peak
+       deltachan = np.abs(3.0 / chanwidth)
+       t = ((spec1.data.filled(0))[subsetidx])[(peakIndex-deltachan):(peakIndex+deltachan)]
+       v = (vaxis[subsetidx])[(peakIndex-deltachan):(peakIndex+deltachan)]
+       # Calculate line width.
+       sigv = np.sqrt(abs(np.sum(t*v**2)/np.sum(t)-(np.sum(t*v)/np.sum(t))**2))
+
+       if (np.isnan(sigv)):
+          sigv = 0.85840189 # mean of sigv from first set of data from ./nh3_all/
+
+       # Peak of cross correlation is the brightness.
+
+       v0 = np.float((vaxis[subsetidx])[peakIndex])
+       # Set the excitation temperature to be between CMB and 20 K
+       # and equal to the peak brightness + 2.73 if valid.
+       tex = np.min([np.max([spec1.data.filled(0)[peakIndex],0])+2.73,20])
+
+
+       guess = [20, # 20 K kinetic temperature
+           tex,  #
+           15, # Log NH3
+           sigv, # velocity dispersion
+           v0,
+           0.5]
 
     if os.path.exists('./nh3_all/'+thisObject+'.n22.fits'):
        data2 = fits.getdata('./nh3_all/'+thisObject+'.n22.fits')
@@ -102,11 +191,24 @@ for thisObject in objects:
 						
     spdict1,spectra1 = pyspeckit.wrappers.fitnh3.fitnh3tkin(spectrum,dobaseline=False,guesses=guess,fixed=[False,False,False,False,False,True])
 
+    glong, glat = parse_coords(data1)
+
     # Filters out good and bad fits
     if -150 < spectra1.specfit.modelpars[4] < 150:
 
        # Further filtering out bad fits with Tk < 8 and Tex < 3
-       if spectra1.specfit.modelpars[0] < 7.5:
+       if 48.9 < glong < 49.7:
+          # When glong ~ 49, kdist gives an error
+          spec_parsG = [thisObject,spectra1.specfit.modelpars[0],spectra1.specfit.modelpars[1],spectra1.specfit.modelpars[2],spectra1.specfit.modelpars[3],spectra1.specfit.modelpars[4],spectra1.specfit.modelpars[5]] 
+          t_parsG.add_row(spec_parsG) 
+
+          d_rowG = [thisObject,glong,glat]
+          t_distG.add_row(d_rowG)
+
+          plt.savefig(fnameT3.format(thisObject), dpi = 100, format='png')
+          plt.close() 
+
+       elif spectra1.specfit.modelpars[0] < 7.5:
           plt.savefig(fnameT2.format(thisObject), dpi = 100, format='png')
           plt.close()        
   
@@ -116,14 +218,13 @@ for thisObject in objects:
 
        else:  
           # The good fits are stored in tables
-          spec_pars = spectra1.specfit.modelpars    	        
-          spec_pars.insert(0,thisObject)                 	
+          spec_pars = [thisObject,spectra1.specfit.modelpars[0],spectra1.specfit.modelpars[1],spectra1.specfit.modelpars[2],spectra1.specfit.modelpars[3],spectra1.specfit.modelpars[4],spectra1.specfit.modelpars[5]]    	                	
 			        
           spec_errs = spectra1.specfit.modelerrs    	        
           spec_errs.insert(0,thisObject)                 	
 
           # Distances and galactic coordinates
-          glong, glat = parse_coords(data1)
+          
           distance, rgal = kdist(glong, glat, spectra1.specfit.modelpars[4], rrgal = True)
           d_row = [thisObject,distance,rgal,glong,glat]
 
@@ -161,20 +262,18 @@ for thisObject in objects:
        plt.close()
 
 # Save tables after loop is done; note we get errors as we can't overwrite it
-"""
+
 t_pars.write('./nh3_tables/nh3_pars.fits',format='fits')
 t_errs.write('./nh3_tables/nh3_errs.fits',format='fits')
 t_w11.write('./nh3_tables/nh3_w11.fits',format='fits')
 t_int.write('./nh3_tables/nh3_int.fits',format='fits')
 t_dist.write('./nh3_tables/nh3_dist.fits',format='fits')
-  """
 
 print t_pars
 print t_errs
 print t_w11
 print t_int
 print t_dist
-
     
 # Fit parameter histograms
 plt.clf()            
