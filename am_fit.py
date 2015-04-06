@@ -46,7 +46,7 @@ Output:  nh3dict = Dictionary of the entire spectrum
 fileNames = glob.glob('./nh3_all/*fits')
 
 # Small section of data
-fileNames = glob.glob('./nh3_all/G049*.fits')
+#fileNames = glob.glob('./nh3_all/G049*.fits')
 
 
 a = np.arange(len(fileNames))
@@ -59,10 +59,6 @@ t_w11 = Table(names=('FILENAME','W11OBS','W11EMP','RMSOBS','RMSEMP','DIFF','PERC
 t_pars = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 t_errs = Table(names=('FILENAME','TKINERR','TEXERR','NERR','SIGVERR','VERR','FERR'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
 t_dist = Table(names=('FILENAME','DIST','RGAL','G.LONG','G.LAT'),dtype=('S20','f5','f5','f5','f5'))
-
-# Good fits but with glong ~ 49 where it can't calculate rgal
-t_parsG = Table(names=('FILENAME','TKIN','TEX','N','SIGV','V','F'),dtype=('S20','f5','f5','f5','f5','f5','f1'))
-t_distG = Table(names=('FILENAME','G.LONG','G.LAT'),dtype=('S20','f5','f5'))
 
 c = 2.99792458e8
 
@@ -197,18 +193,8 @@ for thisObject in objects:
     if -150 < spectra1.specfit.modelpars[4] < 150:
 
        # Further filtering out bad fits with Tk < 8 and Tex < 3
-       if 48.9 < glong < 49.7:
-          # When glong ~ 49, kdist gives an error
-          spec_parsG = [thisObject,spectra1.specfit.modelpars[0],spectra1.specfit.modelpars[1],spectra1.specfit.modelpars[2],spectra1.specfit.modelpars[3],spectra1.specfit.modelpars[4],spectra1.specfit.modelpars[5]] 
-          t_parsG.add_row(spec_parsG) 
 
-          d_rowG = [thisObject,glong,glat]
-          t_distG.add_row(d_rowG)
-
-          plt.savefig(fnameT3.format(thisObject), dpi = 100, format='png')
-          plt.close() 
-
-       elif spectra1.specfit.modelpars[0] < 7.5:
+       if spectra1.specfit.modelpars[0] < 7.5:
           plt.savefig(fnameT2.format(thisObject), dpi = 100, format='png')
           plt.close()        
   
@@ -225,7 +211,7 @@ for thisObject in objects:
 
           # Distances and galactic coordinates
           
-          distance, rgal = kdist(glong, glat, spectra1.specfit.modelpars[4], rrgal = True)
+          distance, rgal = kdist(np.atleast_1d(glong), np.atleast_1d(glat), np.atleast_1d(spectra1.specfit.modelpars[4]), rrgal = True)
           d_row = [thisObject,distance,rgal,glong,glat]
 
           # Error calculation for W11 between observational and empirical
@@ -269,12 +255,27 @@ t_w11.write('./nh3_tables/nh3_w11.fits',format='fits')
 t_int.write('./nh3_tables/nh3_int.fits',format='fits')
 t_dist.write('./nh3_tables/nh3_dist.fits',format='fits')
 
-print t_pars
-print t_errs
-print t_w11
-print t_int
-print t_dist
-    
+"""
+#plotting 
+pars = fits.getdata('./nh3_tables/final/nh3_pars.fits')
+errs = fits.getdata('./nh3_tables/final/nh3_errs.fits')
+dist = fits.getdata('./nh3_tables/final/nh3_dist.fits')
+w11  = fits.getdata('./nh3_tables/final/nh3_w11.fits')
+wint = fits.getdata('./nh3_tables/final/nh3_int.fits')
+
+
+f, axarr = plt.subplots(2,sharex=True)
+axarr[0].scatter(dist['RGAL']/1000,pars['N'])
+axarr[0].set_ylabel('Column Density (log(N))')
+#axarr[0].set_ylim([0,55])
+axarr[0].set_xlim([0,15])
+axarr[1].scatter(dist['RGAL']/1000,pars['TEX'])
+axarr[1].set_ylabel('Excitation Temperature (K)')
+axarr[1].set_xlabel('Galactocentric Distance (kpc)')
+#axarr[1].set_ylim([-65,140])
+axarr[1].set_xlim([0,15])
+
+
 # Fit parameter histograms
 plt.clf()            
 py.hist(t_pars['TKIN'],bins=100)
@@ -358,4 +359,4 @@ plt.xlabel('Mach Number')
 plt.title('Mach Number ($Ma$) vs Kinetic Temperature ($T_k$)')
 plt.savefig('./ammonia_plots/Ma_vs_tkin.png', format='png')
 plt.close()
-
+"""
